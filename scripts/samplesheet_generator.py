@@ -12,6 +12,9 @@ from genologics.config import BASEURI, USERNAME, PASSWORD
 
 DESC = """EPP used to create HiseqX samplesheets"""
 
+# Pre-compile regexes in global scope:
+IDX_PAT = re.compile("([ATCG]{4,})-?([ATCG]*)")
+TENX_PAT = re.compile("SI-GA-[A-H][1-9][0-2]?")
 
 def check_index_distance(data, log):
     lanes=set([x['lane'] for x in data])
@@ -210,19 +213,24 @@ def gen_Miseq_data(pro):
 
 def find_barcode(sample, process):
     # print "trying to find {} barcode in {}".format(sample.name, process.name)
-    idx_pat = re.compile("([ATCG]{4,})-?([ATCG]*)")
     for art in process.all_inputs():
         if sample in art.samples:
             if len(art.samples) == 1 and art.reagent_labels:
-                try:
-                    idxs = idx_pat.findall(art.reagent_labels[0])[0]
-                except IndexError:
-                    # we only have the reagent label name.
-                    rt = lims.get_reagent_types(name=art.reagent_labels[0])[0]
+                idxs = TENX_PAT.findall(art.reagent_labels[0])
+                if idxs:
+                    # Put in tuple with empty string as second index to
+                    # match expected type:
+                    idxs = (idxs[0], "")
+                else:
                     try:
-                        idxs = idx_pat.findall(rt.sequence)[0]
-                    except:
-                        return ("NoIndex","")
+                        idxs = IDX_PAT.findall(art.reagent_labels[0])[0]
+                    except IndexError:
+                        # we only have the reagent label name.
+                        rt = lims.get_reagent_types(name=art.reagent_labels[0])[0]
+                        try:
+                            idxs = IDX_PAT.findall(rt.sequence)[0]
+                        except:
+                            return ("NoIndex","")
 
                 return idxs
             else:
