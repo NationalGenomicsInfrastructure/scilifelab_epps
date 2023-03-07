@@ -351,6 +351,8 @@ def pool(
         # Format worklist 
         df_formatted = zika_utils.format_worklist(df_wl, deck)
 
+        df_formatted.to_csv(currentStep.id)
+
         # Comments to attach to the worklist header
         comments = [f"This worklist will enact pooling of {len(df_all)} samples",
         "For detailed parameters see the worklist log"]
