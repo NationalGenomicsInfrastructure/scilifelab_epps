@@ -30,13 +30,17 @@ SEQSETUP_PAT = re.compile("[0-9]+-[0-9A-z]+-[0-9A-z]+-[0-9]+")
 
 
 def check_index_distance(data, log):
+    # 'data' is the list-of-dicts of sample information
     lanes = set([x["lane"] for x in data])
     for l in lanes:
+        # For each lane, get all indices present throughout the samples loaded therein
         indexes = [
             x.get("idx1", "") + x.get("idx2", "") for x in data if x["lane"] == l
         ]
         if not indexes or len(indexes) == 1:
             return None
+
+        # Log indices with a Levenshtein distance < 2
         for i, b in enumerate(indexes[:-1]):
             start = i + 1
             for b2 in indexes[start:]:
@@ -50,40 +54,51 @@ def check_index_distance(data, log):
 
 
 def my_distance(idx1, idx2):
+    """Return Leveshtein distance of two sequences"""
+
+    # Define which index is the shorter / longer one
     short = min((idx1, idx2), key=len)
     lon = idx1 if short == idx2 else idx2
 
+    # Manually calculate the sequence distance
     diffs = 0
     for i, c in enumerate(short):
         if c != lon[i]:
             diffs += 1
+
     return diffs
 
 
-def gen_Novaseq_lane_data(pro):
+def gen_Novaseq_lane_data(pro: Process) -> tuple:
+    # Create dataframe --> list to fill with dicts
     data = []
+    # Define dataframe headers
     header_ar = [
-        "FCID",
-        "Lane",
-        "Sample_ID",
-        "Sample_Name",
-        "Sample_Ref",
-        "index",
-        "index2",
-        "Description",
-        "Control",
-        "Recipe",
-        "Operator",
-        "Sample_Project",
+        "FCID",  # fc
+        "Lane",  # lane
+        "Sample_ID",  # sn
+        "Sample_Name",  # sn
+        "Sample_Ref",  # ref
+        "index",  # idx1
+        "index2",  # idx2
+        "Description",  # pj
+        "Control",  # ct
+        "Recipe",  # rc
+        "Operator",  # op
+        "Sample_Project",  # pj
     ]
     for out in pro.all_outputs():
         if out.type == "Analyte":
             for sample in out.samples:
+                # Collect all barcodes associated with the analyte
                 sample_idxs = set()
                 find_barcode(sample_idxs, sample, pro)
+
+                # Create the sample-specific dict to append to the dataframe
                 for idxs in sample_idxs:
                     sp_obj = {}
                     sp_obj["lane"] = out.location[1].split(":")[0].replace(",", "")
+
                     if NGISAMPLE_PAT.findall(sample.name):
                         sp_obj["sid"] = "Sample_{}".format(sample.name).replace(",", "")
                         sp_obj["sn"] = sample.name.replace(",", "")
@@ -101,6 +116,7 @@ def gen_Novaseq_lane_data(pro):
                         else:
                             sp_obj["rc"] = "0-0"
                     else:
+                        # For analytes not matching the NGI sample naming convention, treat them as controls
                         sp_obj["sid"] = (
                             "Sample_{}".format(sample.name)
                             .replace("(", "")
@@ -117,6 +133,7 @@ def gen_Novaseq_lane_data(pro):
                         sp_obj["pj"] = "Control"
                         sp_obj["ref"] = "Control"
                         sp_obj["rc"] = "0-0"
+
                     sp_obj["ct"] = "N"
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
@@ -125,6 +142,7 @@ def gen_Novaseq_lane_data(pro):
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["idx1"] = idxs[0].replace(",", "").upper()
                     if idxs[1]:
+                        # Use index 2 directly, or use reverse complement, depending on version
                         if pro.udf["Reagent Version"] == "v1.5":
                             sp_obj["idx2"] = idxs[1].replace(",", "").upper()
                         elif pro.udf["Reagent Version"] == "v1.0":
@@ -140,7 +158,10 @@ def gen_Novaseq_lane_data(pro):
                     else:
                         sp_obj["idx2"] = ""
                     data.append(sp_obj)
+
+    # Convert headers from list-of-strings --> str
     header = "{}\n".format(",".join(header_ar))
+    # Convert data from list-of-dicts --> str
     str_data = ""
     for line in sorted(data, key=lambda x: x["lane"]):
         l_data = [
@@ -158,10 +179,13 @@ def gen_Novaseq_lane_data(pro):
             line["pj"],
         ]
         str_data = str_data + ",".join(l_data) + "\n"
-
+    # Merge headers with data --> str df
     content = "{}{}".format(header, str_data)
+    # Convert str df to pd df
     df = pd.read_csv(StringIO(content))
+    # Multi-column sorting
     df = df.sort_values(["Lane", "Sample_ID"])
+    # Convert pd df to csv
     content = df.to_csv(index=False)
 
     return (content, data)
@@ -681,15 +705,24 @@ def test():
 def main(lims, args):
     log = []
     thisyear = datetime.now().year
+
+    # Initialize variable to store samplesheet .csv writeable
     content = None
+
     if args.mytest:
         test()
     else:
         process = Process(lims, id=args.pid)
 
+        # Differentiate between different steps / use cases
         if process.type.name == "Load to Flowcell (NovaSeq 6000 v2.0)":
+            # Get samplehsheet .csv writeable and the list-of-dicts from which it was derived
             (content, obj) = gen_Novaseq_lane_data(process)
+
+            # On a per-lane basis, append index pairings which are dangerously close to the log
             check_index_distance(obj, log)
+
+            # Write the samplesheet to the /mfs dir
             if os.path.exists("/srv/mfs/samplesheets/novaseq/{}".format(thisyear)):
                 try:
                     with open(
@@ -759,6 +792,7 @@ def main(lims, args):
                 except Exception as e:
                     log.append(str(e))
 
+        # Create variables associated with the file slots of the step
         if not args.test:
             for out in process.all_outputs():
                 if out.name == "Scilifelab SampleSheet":
@@ -793,8 +827,10 @@ def main(lims, args):
                 else:
                     fc_name = "Samplesheet" + "_" + process.id
 
+            # Write and upload files. Adapt encoding to Illumina requirements.
             with open("{}.csv".format(fc_name), "w", 0o664) as f:
                 f.write(content)
+
             os.chmod("{}.csv".format(fc_name), 0o664)
             for f in ss_art.files:
                 lims.request_session.delete(f.uri)
@@ -807,6 +843,7 @@ def main(lims, args):
                 sys.exit(1)
 
         else:
+            # Test case
             print(content)
             print(log)
 
