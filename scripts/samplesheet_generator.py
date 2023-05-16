@@ -40,7 +40,7 @@ def check_index_distance(data, log):
         if not indexes or len(indexes) == 1:
             return None
 
-        # Log indices with a Levenshtein distance < 2
+        # Iterate across all index pairings and log pairs with a Levenshtein distance < 2
         for i, b in enumerate(indexes[:-1]):
             start = i + 1
             for b2 in indexes[start:]:
