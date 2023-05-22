@@ -503,59 +503,50 @@ def lims_for_novaseq(process, run_dir):
 
 
 def lims_for_NovaSeqXPlus(process, run_dir):
-
     # Parse run
     runParserObj, RunParametersParserObj = parse_run(run_dir)
 
     # Set values for LIMS UDFs
-    
+
     runParameters = RunParametersParserObj.data["RunParameters"]
 
     process.udf["Run ID"] = runParameters["RunId"]
     process.udf["Output Folder"] = runParameters["OutputFolder"]
 
     # Read cycles
-    process.udf["Read 1 Cycles"] = int(runParameters["PlannedReads"]["Read"][0]["Cycles"])
-    process.udf["Read 2 Cycles"] = int(runParameters["PlannedReads"]["Read"][3]["Cycles"])
-    process.udf["Index Read 1"] = int(runParameters["PlannedReads"]["Read"][1]["Cycles"])
-    process.udf["Index Read 2"] = int(runParameters["PlannedReads"]["Read"][2]["Cycles"])
+    process.udf["Read 1 Cycles"] = int(
+        runParameters["PlannedReads"]["Read"][0]["Cycles"]
+    )
+    process.udf["Read 2 Cycles"] = int(
+        runParameters["PlannedReads"]["Read"][3]["Cycles"]
+    )
+    process.udf["Index Read 1"] = int(
+        runParameters["PlannedReads"]["Read"][1]["Cycles"]
+    )
+    process.udf["Index Read 2"] = int(
+        runParameters["PlannedReads"]["Read"][2]["Cycles"]
+    )
 
     # <Consumables>
-    # Flowcell
-    process.udf["Flow Cell ID"] = runParameters["ConsumableInfo"]["ConsumableInfo"][0]["SerialNumber"]
-    process.udf["Flow Cell Part Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][0]["PartNumber"]
-    process.udf["Flow Cell Lot Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][0]["LotNumber"]
+    consumables = runParameters["ConsumableInfo"]["ConsumableInfo"]
+
+    #   Flowcell
+    process.udf["Flow Cell ID"] = consumables[0]["SerialNumber"]
+    process.udf["Flow Cell Part Number"] = consumables[0]["PartNumber"]
+    process.udf["Flow Cell Lot Number"] = consumables[0]["LotNumber"]
     process.udf["Flow Cell Expiration Date"] = datetime.strptime(
-        runParameters["ConsumableInfo"]["ConsumableInfo"][0]["ExpirationDate"].split("T")[0], "%Y-%m-%d").date()
-    process.udf["Flow Cell Mode"] = runParameters["ConsumableInfo"]["ConsumableInfo"][0]["Mode"]
+        consumables[0]["ExpirationDate"].split("T")[0],
+        "%Y-%m-%d",
+    ).date()
+    process.udf["Flow Cell Mode"] = consumables[0]["Mode"]
 
-    # Reagent
-    process.udf["Reagent ID"] = runParameters["ConsumableInfo"]["ConsumableInfo"][1]["SerialNumber"]
-    process.udf["Reagent Part Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][1]["PartNumber"]
-    process.udf["Reagent Lot Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][1]["LotNumber"]
-    process.udf["Reagent Expiration Date"] = datetime.strptime(
-        runParameters["ConsumableInfo"]["ConsumableInfo"][1]["ExpirationDate"].split("T")[0], "%Y-%m-%d").date()
-
-    # Buffer
-    process.udf["Buffer ID"] = runParameters["ConsumableInfo"]["ConsumableInfo"][2]["SerialNumber"]
-    process.udf["Buffer Part Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][2]["PartNumber"]
-    process.udf["Buffer Lot Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][2]["LotNumber"]
+    #   Buffer
+    process.udf["Buffer Part Number"] = consumables[2]["PartNumber"]
+    process.udf["Buffer Lot Number"] = consumables[2]["LotNumber"]
     process.udf["Buffer Expiration Date"] = datetime.strptime(
-        runParameters["ConsumableInfo"]["ConsumableInfo"][2]["ExpirationDate"].split("T")[0], "%Y-%m-%d").date()
-
-    # Sample Tube
-    process.udf["Sample Tube ID"] = runParameters["ConsumableInfo"]["ConsumableInfo"][3]["SerialNumber"]
-    process.udf["Sample Tube Part Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][3]["PartNumber"]
-    process.udf["Sample Tube Lot Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][3]["LotNumber"]
-    process.udf["Sample Tube Expiration Date"] = datetime.strptime(
-        runParameters["ConsumableInfo"]["ConsumableInfo"][3]["ExpirationDate"].split("T")[0], "%Y-%m-%d").date()
-
-    # Lyo
-    process.udf["Lyo ID"] = runParameters["ConsumableInfo"]["ConsumableInfo"][4]["SerialNumber"]
-    process.udf["Lyo Part Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][4]["PartNumber"]
-    process.udf["Lyo Lot Number"] = runParameters["ConsumableInfo"]["ConsumableInfo"][4]["LotNumber"]
-    process.udf["Lyo Expiration Date"] = datetime.strptime(
-        runParameters["ConsumableInfo"]["ConsumableInfo"][4]["ExpirationDate"].split("T")[0], "%Y-%m-%d").date()
+        consumables[2]["ExpirationDate"].split("T")[0],
+        "%Y-%m-%d",
+    ).date()
     # </Consumables>
 
     # Put in LIMS
