@@ -59,6 +59,8 @@ def fetch_rundir(fc_id, run_type):
         data_dir = "miseq_data"
     elif run_type == "novaseq":
         data_dir = "NovaSeq_data"
+    elif run_type == "NovaSeqXPlus":
+        data_dir = "NovaseqX"
     run_dir_path = os.path.join(os.sep, "srv", "mfs", data_dir, "*{}".format(fc_id))
     if len(glob.glob(run_dir_path)) == 1:
         run_dir = glob.glob(run_dir_path)[0]
@@ -82,7 +84,7 @@ def parse_run(run_dir):
             "{}/runParameters.xml".format(run_dir)
         )
     else:
-        sys.stderr.write("No RunParameters.xml found for FC {}".format(fc_id))
+        sys.stderr.write("No RunParameters.xml found in dir {}".format(run_dir))
         sys.exit(2)
     return runParserObj, RunParametersParserObj
 
@@ -551,6 +553,7 @@ def lims_for_NovaSeqXPlus(process, run_dir):
 
     # Put in LIMS
     process.put()
+
     # Set run stats parsed from InterOp
     run_stats_summary = parse_illumina_interop(run_dir)
     set_run_stats_in_lims(process, run_stats_summary)
@@ -559,15 +562,19 @@ def lims_for_NovaSeqXPlus(process, run_dir):
 def main(lims, args):
     process = Process(lims, id=args.pid)
 
+    # Fetch FC ID
+    fc_id = fetch_fc(process)
+
     if process.type.name == "Illumina Sequencing (NextSeq) v1.0":
         run_type = "nextseq"
     elif process.type.name == "MiSeq Run (MiSeq) 4.0":
         run_type = "miseq"
     elif process.type.name == "AUTOMATED - NovaSeq Run (NovaSeq 6000 v2.0)":
-        run_type = "novaseq"
-
-    # Fetch FC ID
-    fc_id = fetch_fc(process)
+        # Since NovaSeqXPlus is deployed in the same LIMS step, use flowcell ID convention to differentiate
+        if fc_id[-2:] == "T3":
+            run_type = "NovaSeqXPlus"
+        else:
+            run_type = "novaseq"
 
     # Fetch run dir
     run_dir = fetch_rundir(fc_id, run_type)
@@ -579,6 +586,8 @@ def main(lims, args):
         lims_for_miseq(process, run_dir)
     elif run_type == "novaseq":
         lims_for_novaseq(process, run_dir)
+    elif run_type == "NovaSeqXPlus":
+        lims_for_NovaSeqXPlus(process, run_dir)
 
 
 if __name__ == "__main__":
