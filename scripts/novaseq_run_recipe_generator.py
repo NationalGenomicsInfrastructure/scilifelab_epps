@@ -29,6 +29,10 @@ def main(lims, args):
         except Exception as e:
             log.append(str(e))
 
+    # If script is being run for a NovaSeqXPlus flowcell, exit.
+    if fc_name[-2:] == "T3":
+        sys.exit(1)
+
     # Fetch required run step UDFs
     run_mode = process.udf.get("Run Mode", "")
     sample_loading_type = (
