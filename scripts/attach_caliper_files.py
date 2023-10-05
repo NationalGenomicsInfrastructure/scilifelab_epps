@@ -15,6 +15,8 @@ from genologics.lims import Lims
 from genologics.entities import Artifact, Process,Container, Sample
 from genologics.config import BASEURI,USERNAME,PASSWORD
 
+from epp_utils.nextcloud_webdav import NextCloudClient
+
 from argparse import ArgumentParser
 import os
 import re
@@ -26,10 +28,14 @@ from scilifelab_epps.epp import attach_file,EppLogger, unique_check, EmptyError
 def main(lims, args, epp_logger):
     p = Process(lims, id=args.pid)
 
-    if not args.path:
-        args.path = os.getcwd()
+    if args.nextcloud:
+        client = NextCloudClient()
+        file_list = client.listdir(args.path)
+    else:
+        if not args.path:
+            args.path = os.getcwd()
 
-    file_list = os.listdir(args.path)
+        file_list = os.listdir(args.path)
 
     # Find all per input result files
     io = p.input_output_maps
@@ -51,7 +57,7 @@ def main(lims, args, epp_logger):
         i_w = ''.join(i_w.split(':'))
 
 
-        # Use a reguluar expression to find the file name given
+        # Use a regular expression to find the file name given
         # the container and sample. This is all assuming the driver template name ends with:
         # ${INPUT.CONTAINER.PLACEMENT}_${INPUT.NAME}_${INPUT.CONTAINER.LIMSID}_${INPUT.LIMSID}
         # However, names are excluded to improve robustness.
@@ -80,10 +86,15 @@ def main(lims, args, epp_logger):
                             "please attach files manually").format(i_a.id))
             artifact_multiple_file.append(i_a)
         else:
-            fn = fns[0]
+            file_path = fns[0]
+            fn = file_path.split("/")[-1]
+
             found_files.append(fn)
             logging.info("Found image file {0} for artifact with id {1}".format(fn, i_a.id))
             fp = os.path.join(args.path, fn)
+
+            if args.nextcloud:
+                client.download_file(file_path, fp)
 
             # Attach file to the LIMS
             location = attach_file(fp, o_a)
@@ -113,6 +124,7 @@ if __name__ == "__main__":
                         help='Path where image files are located')
     parser.add_argument('--instrument',default="caliper",
                         help='instrument deciding the file regex format')
+    parser.add_argument('--nextcloud', action='store_true', help="Files are fetched from nextcloud instead of local file system")
     args = parser.parse_args()
 
     lims = Lims(BASEURI, USERNAME, PASSWORD)
