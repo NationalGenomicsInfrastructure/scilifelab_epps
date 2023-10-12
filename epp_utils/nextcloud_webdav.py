@@ -29,4 +29,4 @@ class NextCloudClient(object):
         try:
             self.client.download_file(file_path, local_file)
         except Exception as e:
-            print(f"Could not download {file_name} because of: {e}")
+            print(f"Could not download {file_path} because of: {e}")
