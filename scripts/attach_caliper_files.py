@@ -46,6 +46,8 @@ def main(lims, args, epp_logger):
     artifact_multiple_file = []
     found_files = []
 
+
+
     for input, output in io_filtered:
         i_a = Artifact(lims,id=input['limsid'])
         o_a = Artifact(lims,id=output['limsid'])
@@ -87,17 +89,20 @@ def main(lims, args, epp_logger):
             artifact_multiple_file.append(i_a)
         else:
             file_path = fns[0]
-            fn = file_path.split("/")[-1]
+            file_name = file_path.split("/")[-1]
 
-            found_files.append(fn)
-            logging.info("Found image file {0} for artifact with id {1}".format(fn, i_a.id))
-            fp = os.path.join(args.path, fn)
+            found_files.append(file_name)
+            logging.info("Found image file {0} for artifact with id {1}".format(file_name, i_a.id))
+            fp = os.path.join(args.path, file_name)
+
 
             if args.nextcloud:
-                client.download_file(file_path, fp)
+                client.download_file(file_path, file_name)
+                location = attach_file(file_name, o_a)
+            else:
+                # Attach file to the LIMS
+                location = attach_file(fp, o_a)
 
-            # Attach file to the LIMS
-            location = attach_file(fp, o_a)
             logging.debug("Moving {0} to {1}".format(fp,location))
 
     warning = ""
