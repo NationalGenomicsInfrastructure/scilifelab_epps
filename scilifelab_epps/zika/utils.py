@@ -114,7 +114,11 @@ def fetch_sample_data(currentStep: Process, to_fetch: dict) -> pd.DataFrame:
                 except KeyError:
                     row[col_name] = None
             else:
-                row[col_name] = fetch_last(currentStep, art_tuple, udf_query)
+                row[col_name] = fetch_last(
+                    target_art=art_tuple[0]["uri"],
+                    target_udfs=udf_query,
+                    include_current=True,
+                )
         rows.append(row)
 
     # Transform to dataframe

@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20241220.1
+
+Rebuild EPP to fetch last recorded derived sample UDF.
+
 ## 20250116.1
 
 Ruff 0.9.2 formatting.

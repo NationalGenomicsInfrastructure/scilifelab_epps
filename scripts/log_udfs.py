@@ -37,7 +37,7 @@ def main(lims, args):
             file_str = None
 
         # Parse outputs and their UDFs
-        if udf_tools.no_outputs(currentStep):
+        if udf_tools.get_art_tuples(currentStep) == []:
             arts = [art for art in currentStep.all_inputs() if art.type == "Analyte"]
         else:
             arts = [art for art in currentStep.all_outputs() if art.type == "Analyte"]

@@ -45,7 +45,11 @@ def main(lims, args):
 
         # Get last known length
         size_bp, size_bp_history = udf_tools.fetch_last(
-            currentStep, art_tuple, "Size (bp)", on_fail=None, print_history=True
+            target_art=art_out,
+            target_udfs="Size (bp)",
+            log_traceback=True,
+            return_traceback=True,
+            on_fail=None,
         )
         log.append(f"'Size (bp)': {size_bp}\n{size_bp_history}")
 

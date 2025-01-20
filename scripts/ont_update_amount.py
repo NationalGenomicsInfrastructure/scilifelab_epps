@@ -44,10 +44,10 @@ def main(lims, args):
                     or "ONT Barcoding" in currentStep.type.name
                 ):
                     size_bp, size_bp_history = udf_tools.fetch_last(
-                        currentStep=currentStep,
-                        art_tuple=art_tuple,
+                        target_art=art_out,
                         target_udfs="Size (bp)",
-                        print_history=True,
+                        log_traceback=True,
+                        return_traceback=True,
                         on_fail=None,
                     )
                     log.append(f"'Size (bp)': {size_bp}\n{size_bp_history}")
