@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250117.1
+
+Renovate reads aggregation EPP and include ONT / AVITI.
+
 ## 20250116.1
 
 Ruff 0.9.2 formatting.
