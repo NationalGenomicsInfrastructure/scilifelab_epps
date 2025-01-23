@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250122.3
+
+Renovate reads aggregation EPP and include ONT / AVITI.
+
 ## 20250122.2
 
 Rebuild EPP to fetch last recorded derived sample UDF.
