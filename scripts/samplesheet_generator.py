@@ -136,7 +136,7 @@ def gen_Novaseq_lane_data(pro):
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "")
+                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["idx1"] = idxs[0].replace(",", "").upper()
                     if idxs[1]:
@@ -241,7 +241,7 @@ def gen_NovaSeqXPlus_lane_data(pro):
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "")
+                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["idx1"] = idxs[0].replace(",", "").upper()
                     if idxs[1]:
@@ -408,7 +408,7 @@ def gen_Miseq_data(pro):
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "")
+                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
                     sp_obj["sw"] = out.location[1].replace(",", "")
 
                     # Expand 10X single indexes
@@ -586,7 +586,7 @@ def gen_Nextseq_lane_data(pro):
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "")
+                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["idx1"] = idxs[0].replace(",", "")
                     if idxs[1]:
@@ -740,12 +740,12 @@ def main(lims, args):
                 elif out.type == "Analyte":
                     if process.type.name == "Load to Flowcell (NextSeq v1.0)":
                         fc_name = (
-                            process.udf["Flowcell Series Number"]
+                            process.udf["Flowcell Series Number"].upper()
                             if process.udf["Flowcell Series Number"]
-                            else out.location[0].name
+                            else out.location[0].name.upper()
                         )
                     else:
-                        fc_name = out.location[0].name
+                        fc_name = out.location[0].name.upper()
                 elif process.type.name in [
                     "MinION QC",
                     "Load Sample and Sequencing (MinION) 1.0",
