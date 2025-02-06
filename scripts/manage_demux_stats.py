@@ -335,6 +335,9 @@ def set_sample_values(demux_process, parser_struct, process_stats):
                     "exit",
                     f"Unable to determine sample name. Incorrect sample variable in process: {str(e)}",
                 )
+            # Skip artifacts that are not sample-related
+            if current_name not in target_file.name:
+                continue
             for entry in parser_struct:
                 if lane_no == entry["Lane"]:
                     sample = entry["Sample"]
