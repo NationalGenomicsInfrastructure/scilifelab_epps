@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250206.1
+
+Bugfix demux script by skipping outputs that do not contain the relevant sample name.
+
 ## 20250205.1
 
 Introduce patch to reads aggregation EPP so opened steps don't have to be re-started from scratch.
