@@ -357,7 +357,7 @@ lims_process_record = {
             "details": ["Processname"],
         },
     },
-    "ONT Reverse Transcription": {
+    "ONT PCR Barcoding": {
         "lims_instrument": {
             "dest_file": "PCR",
         },
