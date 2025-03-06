@@ -357,6 +357,11 @@ lims_process_record = {
             "details": ["Processname"],
         },
     },
+    "ONT Reverse Transcription": {
+        "lims_instrument": {
+            "dest_file": "PCR",
+        },
+    },
     "ONT Start Sequencing v3.0": {
         "lims_instrument": {
             "dest_file": "MinION-PromethION",
