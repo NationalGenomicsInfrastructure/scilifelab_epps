@@ -15,7 +15,7 @@ from genologics.entities import Artifact, Process
 from genologics.lims import Lims
 from tabulate import tabulate
 
-from data.ONT_barcodes import ONT_BARCODE_LABEL_PATTERN, ONT_BARCODES
+from data.ONT_barcodes import format_well, ont_label2dict
 from scilifelab_epps.epp import traceback_to_step, upload_file
 from scilifelab_epps.utils.udf_tools import fetch
 from scilifelab_epps.wrapper import epp_decorator
@@ -38,11 +38,6 @@ def get_ont_library_contents(
     ONT barcodes, Illumina indices, both or neither.
 
     """
-
-    # Link ONT barcode well to ONT barcode
-    ont_barcode_well2label = {}
-    for ont_barcode_dict in ONT_BARCODES:
-        ont_barcode_well2label[ont_barcode_dict["well"]] = ont_barcode_dict["label"]
 
     # Link samples to reagent_labels via database queries, if applicable
     if len(ont_library.reagent_labels) > 0:
@@ -90,7 +85,12 @@ def get_ont_library_contents(
                 assert udf_ont_barcode_well, (
                     f"Pooling input '{ont_pooling_input.name}' consists of multiple samples, but has not been assigned an ONT barcode."
                 )
-                sanitized_well = udf_ont_barcode_well.upper().replace(":", "")
+
+                # Link ONT barcode well to ONT barcode
+                ont_barcode_well2label = {}
+                for label, label_properties in ont_label2dict.items():
+                    ont_barcode_well2label[label_properties["well"]] = label
+                sanitized_well = format_well(udf_ont_barcode_well)
                 ont_barcode = ont_barcode_well2label[sanitized_well]
 
                 library_contents_msg += f"\n\t - '{ont_pooling_input.name}': Illumina indexed pool with ONT-barcode '{ont_barcode}'"
@@ -302,7 +302,7 @@ def write_minknow_csv(df: pd.DataFrame, file_path: str):
     df_csv.to_csv(file_path, index=False)
 
 
-def generate_MinKNOW_samplesheet(args):
+def generate_MinKNOW_samplesheet(process):
     """=== Sample sheet columns ===
 
     flow_cell_id                E.g. 'PAM96489'
@@ -326,9 +326,6 @@ def generate_MinKNOW_samplesheet(args):
     - barcode
 
     """
-
-    lims = Lims(BASEURI, USERNAME, PASSWORD)
-    process = Process(lims, id=args.pid)
 
     qc = True if "QC" in process.type.name else False
     logging.info(f"QC run: {qc}")
@@ -402,6 +399,7 @@ def generate_MinKNOW_samplesheet(args):
                 "ONT prep kit"
             ) in ["SQK-PCB114-24"]:
                 # Assert barcodes are found within library
+                # TODO
                 assert ont_barcodes, (
                     f"ONT barcodes are implied from kit selection, but no ONT barcodes were found within library {ont_library.name}"
                 )
@@ -417,15 +415,8 @@ def generate_MinKNOW_samplesheet(args):
 
                 for barcode_row_data in barcode_rows_data:
                     row["alias"] = sanitize_string(barcode_row_data[alias_column_name])
-                    barcode_label_match = re.match(
-                        ONT_BARCODE_LABEL_PATTERN,
-                        barcode_row_data["ont_barcode"],
-                    )
-                    assert barcode_label_match, (
-                        f"Could not parse barcode '{barcode_row_data['ont_barcode']}'."
-                    )
-                    barcode_id = barcode_label_match.group(2)
-                    row["barcode"] = f"barcode{barcode_id}"
+                    barcode_id = ont_label2dict[barcode_row_data["ont_barcode"]]["num"]
+                    row["barcode"] = f"barcode{str(barcode_id).zfill(2)}"
 
                     assert re.match(r"barcode\d{2}", row["barcode"])
                     assert "" not in row.values(), "All fields must be populated."
@@ -487,7 +478,7 @@ def main(args):
     lims = Lims(BASEURI, USERNAME, PASSWORD)
     process = Process(lims, id=args.pid)
 
-    file_name = generate_MinKNOW_samplesheet(args)
+    file_name = generate_MinKNOW_samplesheet(process)
 
     logging.info("Uploading samplesheet to LIMS...")
     upload_file(

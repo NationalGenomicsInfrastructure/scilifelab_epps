@@ -13,7 +13,7 @@ from genologics.entities import Process
 from genologics.lims import Lims
 
 from data.Chromium_10X_indexes import Chromium_10X_indexes
-from data.ONT_barcodes import ONT_BARCODES
+from data.ONT_barcodes import ont_label2dict
 from scilifelab_epps.epp import upload_file
 from scilifelab_epps.wrapper import epp_decorator
 
@@ -42,14 +42,11 @@ def generate_anglerfish_samplesheet(process):
         list_contents=True,
     )
 
-    # Get dict to map ONT barcode label to it's properties
-    label2dict = {ont_barcode["label"]: ont_barcode for ont_barcode in ONT_BARCODES}
-
     # Add columns pertaining to barcode properties
     if "ont_barcode" in df.columns:
         for i in ["num", "well", "seq"]:
             df[f"ont_barcode_{i}"] = df["ont_barcode"].apply(
-                lambda barcode_label: label2dict[barcode_label][i]
+                lambda barcode_label: ont_label2dict[barcode_label][i]
             )
 
         df["fastq_path"] = df["ont_barcode_num"].apply(
