@@ -399,7 +399,6 @@ def generate_MinKNOW_samplesheet(process):
                 "ONT prep kit"
             ) in ["SQK-PCB114-24"]:
                 # Assert barcodes are found within library
-                # TODO
                 assert ont_barcodes, (
                     f"ONT barcodes are implied from kit selection, but no ONT barcodes were found within library {ont_library.name}"
                 )
