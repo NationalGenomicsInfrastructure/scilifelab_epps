@@ -48,7 +48,7 @@ def assert_samplesheet(process: Process, args: Namespace, lims: Lims):
         return True
 
     # Generate new samplesheet from step, then read it and remove the file
-    new_samplesheet_path = generate_MinKNOW_samplesheet(args=args)
+    new_samplesheet_path = generate_MinKNOW_samplesheet(process)
     new_samplesheet_contents = open(new_samplesheet_path).read()
     os.remove(new_samplesheet_path)
 
