@@ -1,3 +1,5 @@
+import re
+
 DESC = """This module contains ONT barcode data and builds some data structures to organize it.
 
 # ONT documentation on barcoding kits
@@ -374,12 +376,22 @@ ont_name2seq = {
 }
 
 # This version of the dict allows a single sequence to map to multiple names
-ont_unique_seq2names = {}
+ont_seq2names = {}
 for name, seq in ont_name2seq.items():
-    if seq not in ont_unique_seq2names:
-        ont_unique_seq2names[seq] = [name]
+    if seq not in ont_seq2names:
+        ont_seq2names[seq] = [name]
     else:
-        ont_unique_seq2names[seq].append(name)
+        ont_seq2names[seq].append(name)
+
+# This version of the dict groups the barcodes names by shared prefix
+ont_grouped_name2seq = {}
+for name, seq in ont_name2seq.items():
+    # The shared name is whatever precedes the last group of digits in the name
+    shared_prefix = re.match(r"^(.*?)(\d+[^0-9]*)$", name).group(1)
+    if shared_prefix not in ont_grouped_name2seq:
+        ont_grouped_name2seq[shared_prefix] = {}
+    ont_grouped_name2seq[shared_prefix][name] = seq
+
 
 # This dictionary contains the reagent label sets defined in LIMS
 # Fetched from LIMS 2025-03-19 by Alfred Kedhammar
