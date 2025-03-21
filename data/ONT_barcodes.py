@@ -11,7 +11,7 @@ https://nanoporetech.com/document/chemistry-technical-document#barcode-sequences
 # This dictionary unequivocally maps an ONT barcode name to a sequence
 # Fetched and built 2025-03-19 by Alfred Kedhammar
 # from https://nanoporetech.com/document/chemistry-technical-document#barcode-sequences
-ont_name2seq = {
+ont_name2seq: dict[str, str] = {
     "16S01": "AAGAAAGTTGTCGGTGTCTTTGTG",
     "16S02": "TCGATTCCGTTTGTAGTCGTCTGT",
     "16S03": "GAGTCTTGTGTCCCAGTTACCAGG",
@@ -376,7 +376,7 @@ ont_name2seq = {
 }
 
 # This version of the dict allows a single sequence to map to multiple names
-ont_seq2names = {}
+ont_seq2names: dict[str, list[str]] = {}
 for name, seq in ont_name2seq.items():
     if seq not in ont_seq2names:
         ont_seq2names[seq] = [name]
@@ -384,10 +384,12 @@ for name, seq in ont_name2seq.items():
         ont_seq2names[seq].append(name)
 
 # This version of the dict groups the barcodes names by shared prefix
-ont_grouped_name2seq = {}
+ont_grouped_name2seq: dict[str, dict[str, str]] = {}
 for name, seq in ont_name2seq.items():
     # The shared name is whatever precedes the last group of digits in the name
-    shared_prefix = re.match(r"^(.*?)(\d+[^0-9]*)$", name).group(1)
+    shared_prefix_match = re.match(r"^(.*?)(\d+[^0-9]*)$", name)
+    assert shared_prefix_match is not None, f"Could not match shared prefix in {name}"
+    shared_prefix = shared_prefix_match.group(1)
     if shared_prefix not in ont_grouped_name2seq:
         ont_grouped_name2seq[shared_prefix] = {}
     ont_grouped_name2seq[shared_prefix][name] = seq
@@ -395,7 +397,7 @@ for name, seq in ont_name2seq.items():
 
 # This dictionary contains the reagent label sets defined in LIMS
 # Fetched from LIMS 2025-03-19 by Alfred Kedhammar
-lims_kits2labels = {
+lims_kits2labels: dict[str, list[str]] = {
     "Nanopore native barcodes v2": [
         "01_A1_NB01 (CACAAAGACACCGACAACTTTCTT)",
         "02_B1_NB02 (ACAGACGACTACAAACGGAATCGA)",
@@ -613,11 +615,11 @@ def format_well(well: str) -> str:
 
 
 # Build a dict to map a LIMS reagent label to it's properties
-ont_label2dict = {}
+ont_label2dict: dict[str, dict] = {}
 for lims_kit, labels in lims_kits2labels.items():
     for label in labels:
         # Instantiate dict to store barcode properties
-        label_dict = {}
+        label_dict: dict = {}
         label_dict["lims_kit"] = lims_kit
         label_dict["label"] = label
         label_dict["seq"] = label.split(" ")[-1][1:-1]
