@@ -51,7 +51,7 @@ def main(args):
                 row for row in barcodes_view.rows if run_name == row.key
             ][0]
             if not barcodes_row.value:
-                logging.warning(
+                logging.error(
                     "Run database entry does not appear to contain barcodes. Skipping."
                 )
                 continue
@@ -82,7 +82,7 @@ def main(args):
                 logging.info(f"Using LIMS label '{label}' as '{barcode_generic_name}'.")
 
                 if not barcodes_row.value.get(barcode_generic_name):
-                    logging.warning(
+                    logging.error(
                         f"Run database entry does not appear to contain data for {barcode_generic_name}. Skipping."
                     )
                     continue
