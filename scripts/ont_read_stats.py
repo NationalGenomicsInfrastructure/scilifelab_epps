@@ -55,6 +55,7 @@ def main(args):
             io[1]["uri"]
             for io in process.input_output_maps
             if io[0]["uri"].id == library.id
+            and io[1]["output-generation-type"] == "PerReagentLabel"
         ]
         logging.info(f"Handling {len(demux_arts)} demultiplexing artifacts.")
 
@@ -80,16 +81,16 @@ def main(args):
                 metrics: dict = stats_row.value
 
             # Parse and calculate values
-            passed_reads = int(metrics.get("basecalled_pass_read_count", "0"))
-            total_reads = int(metrics.get("read_count", "0"))
-            passed_gb = float(metrics.get("basecalled_pass_bases", "0")) / 1e9
-            passfail_pc: float = (passed_reads / total_reads) * 100
-            avg_len: int = round(passed_gb / passed_reads * 1e9)
+            reads_pass = int(metrics.get("basecalled_pass_read_count", "0"))
+            reads_tot = int(metrics.get("read_count", "0"))
+            gb_pass = float(metrics.get("basecalled_pass_bases", "0")) / 1e9
+            pf_pc: float = (reads_pass / reads_tot) * 100 if reads_tot != 0 else 0
+            avg_len: int = round(gb_pass / reads_pass * 1e9) if reads_pass != 0 else 0
 
             # Assign UDFs
-            demux_art.udf["# Reads"] = passed_reads
-            demux_art.udf["Yield PF (Gb)"] = passed_gb
-            demux_art.udf["%PF"] = passfail_pc
+            demux_art.udf["# Reads"] = reads_pass
+            demux_art.udf["Yield PF (Gb)"] = gb_pass
+            demux_art.udf["%PF"] = pf_pc
             demux_art.udf["Avg. Read Length"] = avg_len
 
             # Publish metrics
