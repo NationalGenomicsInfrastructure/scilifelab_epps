@@ -46,9 +46,12 @@ def main(args):
         # For both views, get the row corresponding to the current run
         stats_row: Row = [row for row in stats_view.rows if run_name == row.key][0]
         if is_barcoded:
+            logging.info("Library seems barcoded.")
             barcodes_row: Row = [
                 row for row in barcodes_view.rows if run_name == row.key
             ][0]
+        else:
+            logging.info("Library seems unlabeled.")
 
         # Get the demultiplexing artifacts of the current run
         demux_arts: list[Artifact] = [
