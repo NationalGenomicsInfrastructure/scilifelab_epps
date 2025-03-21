@@ -222,7 +222,7 @@ def sum_reads(sample, summary):
         demux_art_parents = [
             parent
             for parent in get_parent_inputs(demux_art)
-            if sample in parent.samples
+            if sample.id in [parent_sample.id for parent_sample in parent.samples]
         ]
         assert len(demux_art_parents) == 1
         demux_art_parent = demux_art_parents[0]
