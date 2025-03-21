@@ -66,19 +66,15 @@ def main(args):
 
             # Get dict containing sequencing run metrics
             if is_barcoded:
-                barcode: str = sample2label[sample.name]
-                barcode_info: dict = ont_label2dict[barcode]
+                label: str = sample2label[sample.name]
+                barcode_info: dict = ont_label2dict[label]
                 barcode_num: int = barcode_info["num"]
                 barcode_generic_name: str = f"barcode{str(barcode_num).zfill(2)}"
-                logging.info(
-                    f"Using LIMS label '{barcode}' as '{barcode_generic_name}'."
-                )
+                logging.info(f"Using LIMS label '{label}' as '{barcode_generic_name}'.")
 
                 metrics: dict | None = barcodes_row.value.get(barcode_generic_name)
                 if not metrics:
-                    logging.warning(
-                        f"Barcode {barcode} not found in database. Skipping."
-                    )
+                    logging.warning(f"Barcode {label} not found in database. Skipping.")
                     continue
             else:
                 metrics: dict = stats_row.value
