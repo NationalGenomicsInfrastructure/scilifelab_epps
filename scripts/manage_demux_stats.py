@@ -862,9 +862,9 @@ def write_demuxfile_aviti(process_stats, demux_id):
                                 row.get("QualityScoreMean", "0") or 0
                             ),
                             "% Perfectbarcode": 100
-                            - float(row.get("PercentMismatch", "0")),
+                            - float(row.get("PercentMismatch", "0") or 0),
                             "% One mismatchbarcode": float(
-                                row.get("PercentMismatch", "0")
+                                row.get("PercentMismatch", "0") or 0
                             ),
                             "Yield (Mbases)": str(
                                 float(row.get("Yield(Gb)", "0")) * 1000

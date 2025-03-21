@@ -11,15 +11,14 @@ import logging
 import os
 import re
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from logging.handlers import RotatingFileHandler
 from shutil import copy
 from time import localtime, strftime
 
-import pkg_resources
 from genologics.config import MAIN_LOG
 from genologics.entities import Artifact, Process
 from genologics.lims import Lims
-from pkg_resources import DistributionNotFound
 from requests import HTTPError
 
 
@@ -84,11 +83,8 @@ class EppLogger:
         logging.info(f"Executing file: {sys.argv[0]}")
         logging.info(f"with parameters: {sys.argv[1:]}")
         try:
-            logging.info(
-                f"Version of {self.PACKAGE}: "
-                + pkg_resources.require(self.PACKAGE)[0].version
-            )
-        except DistributionNotFound as e:
+            logging.info(f"Version of {self.PACKAGE}: " + version(self.PACKAGE))
+        except PackageNotFoundError as e:
             logging.error(e)
             logging.error(f"Make sure you have the {self.PACKAGE} package installed")
             sys.exit(-1)

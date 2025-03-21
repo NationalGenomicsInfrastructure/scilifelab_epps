@@ -4,6 +4,22 @@
 
 Misc. ONT updates relating to new ONT workflow.
 
+## 20250318.1
+
+Handle missing PercentMismatch for samples in IndexAssignment.csv
+
+## 20250317.3
+
+Hotfix of 20250317.1, invalid implementation of function.
+
+## 20250317.2
+
+Apply uppercase to flowcell ID.
+
+## 20250317.1
+
+Replace deprecated pkg_resources package and upgrade CI.
+
 ## 20250304.1
 
 Update formulas to match updated [NEB calc tool](https://nebiocalculator.neb.com/#!/dsdnaamt), assuming deprotonated phosphate hydroxyls.
