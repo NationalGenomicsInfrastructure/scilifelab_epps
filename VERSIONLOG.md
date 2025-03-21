@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20240321.1
+
+Misc. ONT updates relating to new ONT workflow.
+
 ## 20250318.1
 
 Handle missing PercentMismatch for samples in IndexAssignment.csv
