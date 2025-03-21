@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20240321.1
+
+Misc. ONT updates relating to new ONT workflow.
+
 ## 20250304.1
 
 Update formulas to match updated [NEB calc tool](https://nebiocalculator.neb.com/#!/dsdnaamt), assuming deprotonated phosphate hydroxyls.
