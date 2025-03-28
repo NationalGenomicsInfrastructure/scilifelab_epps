@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250328.1
+
+Add script to add running notes from the step Load to Flowcell (NovaSeqXPlus) v1.0.
+
 ## 20250327.1
 
 Re-work ONT barcoding module and it's application for MinKNOW samplesheet generation.

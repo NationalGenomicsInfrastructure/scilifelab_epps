@@ -179,9 +179,9 @@ def sync_runs_to_db(process: Process, args: Namespace, lims: Lims):
 
     # Assert that only one input is provided for QC runs
     if "QC" in process.type.name:
-        assert (
-            len(arts) == 1
-        ), "When starting QC sequencing runs, only one input is allowed."
+        assert len(arts) == 1, (
+            "When starting QC sequencing runs, only one input is allowed."
+        )
 
     # Keep track of which artifacts were successfully updated
     arts_successful = []
