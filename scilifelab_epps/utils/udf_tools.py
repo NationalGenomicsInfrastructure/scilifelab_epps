@@ -224,7 +224,7 @@ def fetch_last(
                         logging.info(
                             f"Found target UDF '{target_udf}'"
                             + f" with value '{current_art.udf[target_udf]}'"
-                            + f" in process {steps_visited[-1]}"
+                            + f" in process {steps_visited[-1] if pp else ''}"
                             + f" {'output' if pp else 'input'}"
                             + f" artifact '{current_art.name}' ({current_art.id})"
                         )
