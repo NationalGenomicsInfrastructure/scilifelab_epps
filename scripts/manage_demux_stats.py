@@ -329,7 +329,26 @@ def set_sample_values(demux_process, parser_struct, process_stats):
         # Artifacts in each lane
         for target_file in outarts_per_lane:
             try:
-                current_name = target_file.samples[0].name
+                # This block addresses a LIMS bug in which multiple samples are tied to the same demux artifact
+                # In this case, try to find a single sample name matching the name of the demux artifact
+                if len(target_file.samples) > 1:
+                    matching_names = [
+                        sample.name
+                        for sample in target_file.samples
+                        if sample.name in target_file.name
+                    ]
+                    if len(matching_names) > 1:
+                        raise AssertionError(
+                            "Multiple samples tied to demux artifact more than one sample name matches demux artifact name."
+                        )
+                    elif len(matching_names) == 0:
+                        raise AssertionError(
+                            "Multiple samples tied to demux artifact no sample name matches demux artifact name."
+                        )
+                    else:
+                        current_name = matching_names[0]
+                else:
+                    current_name = target_file.samples[0].name
             except Exception as e:
                 problem_handler(
                     "exit",

@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250401.1
+
+Demux EPP: Add logic block to handle demux artifacts being tied to multiple samples, in which case try to choose a single sample matching the name of the demux artifact.
+
 ## 20250327.1
 
 Re-work ONT barcoding module and it's application for MinKNOW samplesheet generation.
