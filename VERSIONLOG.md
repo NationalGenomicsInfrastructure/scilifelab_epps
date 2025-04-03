@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250403.1
+
+Create project automation to apply sample antibodies from CSV to UDFs.
+
 ## 20250328.1
 
 Add script to add running notes from the step Load to Flowcell (NovaSeqXPlus) v1.0.
