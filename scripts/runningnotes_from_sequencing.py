@@ -58,9 +58,9 @@ def main(args):
         pools[pool_artifact.id] = pool_obj
         for sample in pool_artifact.samples:
             if sample.project.id not in projects:
-                projects[sample.project.id] = [pool_artifact.id]
+                projects[sample.project.id] = {pool_artifact.id}
             else:
-                projects[sample.project.id].append(pool_artifact.id)
+                projects[sample.project.id].add(pool_artifact.id)
 
     # The default value for the "Comments" step field in LIMS contains lines that start with '//' which should be filtered out if they are not removed
     # They could also be used to save info in the step that does not have to be in Genstat

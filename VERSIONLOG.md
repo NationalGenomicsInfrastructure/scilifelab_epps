@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250504.1
+
+Convert list of artifacts to set to get unique values to avoid repeating lines in running notes
+
 ## 20250328.1
 
 Add script to add running notes from the step Load to Flowcell (NovaSeqXPlus) v1.0.
