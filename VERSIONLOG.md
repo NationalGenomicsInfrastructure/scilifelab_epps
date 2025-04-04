@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250431.1
+
+Update EPP wrapper to send log messages to stdout.
+
 ## 20250328.1
 
 Add script to add running notes from the step Load to Flowcell (NovaSeqXPlus) v1.0.
