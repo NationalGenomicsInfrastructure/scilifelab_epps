@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20240410.1
+
+Misc. ONT updates relating to new ONT workflow.
+
 ## 20250408.1
 
 Set up fall-back for get_epp_user() failing in wrapper.
