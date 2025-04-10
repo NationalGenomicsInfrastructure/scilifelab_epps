@@ -1,8 +1,28 @@
 # Scilifelab_epps Version Log
 
-## 20240321.1
+## 20240410.1
 
 Misc. ONT updates relating to new ONT workflow.
+
+## 20250408.1
+
+Set up fall-back for get_epp_user() failing in wrapper.
+
+## 20250405.1
+
+Convert list of artifacts to set to get unique values to avoid repeating lines in running notes
+
+## 20250431.1
+
+Update EPP wrapper to send log messages to stdout.
+
+## 20250328.1
+
+Add script to add running notes from the step Load to Flowcell (NovaSeqXPlus) v1.0.
+
+## 20250327.1
+
+Re-work ONT barcoding module and it's application for MinKNOW samplesheet generation.
 
 ## 20250318.1
 

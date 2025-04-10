@@ -5,10 +5,29 @@ import os
 import sys
 
 from genologics.config import BASEURI, PASSWORD, USERNAME
-from genologics.entities import Process
+from genologics.entities import Process, Researcher
 from genologics.lims import Lims
 
 from scilifelab_epps.epp import upload_file
+from scilifelab_epps.utils.get_epp_user import get_epp_user
+
+
+class TrackingRootLogger(logging.RootLogger):
+    """A root logger that tracks whether any errors or warnings have been emitted."""
+
+    def __init__(self, level):
+        """Initialize with the given level and errors_or_warnings set to False."""
+        super().__init__(level)
+        self.errors_or_warnings = False
+
+    def handle(self, record):
+        """Handle a log record and track if it's an error or warning."""
+        # Check if the record is a warning or error before handling it
+        if record.levelno >= logging.WARNING:
+            self.errors_or_warnings = True
+
+        # Let the parent class handle the record normally
+        return super().handle(record)
 
 
 def epp_decorator(script_path: str, timestamp: str):
@@ -28,6 +47,12 @@ def epp_decorator(script_path: str, timestamp: str):
             lims.check_version()
             process = Process(lims, id=args.pid)
 
+            # Get EPP user
+            try:
+                epp_user: Researcher = get_epp_user(lims, args.pid)
+            except ValueError:
+                epp_user = None
+
             # Name log file
             log_filename: str = (
                 "_".join(
@@ -35,22 +60,40 @@ def epp_decorator(script_path: str, timestamp: str):
                         script_name,
                         process.id,
                         timestamp,
-                        process.technician.name.replace(" ", ""),
+                        (epp_user or process.technician).name.replace(" ", ""),
                     ]
                 )
                 + ".log"
             )
 
             # Set up logging
-            logging.basicConfig(
-                filename=log_filename,
-                filemode="w",
-                format="%(levelname)s: %(message)s",
-                level=logging.INFO,
-            )
+
+            # Set custom subclass as root logger
+            logger = TrackingRootLogger(level=logging.INFO)
+            logging.root = logger
+
+            # Clear any existing handlers (to avoid duplicates)
+            for handler in logger.handlers[:]:
+                logger.removeHandler(handler)
+
+            # Create file handler
+            file_handler = logging.FileHandler(log_filename, mode="w")
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+
+            # Create stdout handler
+            stdout_handler = logging.StreamHandler(sys.stdout)
+            stdout_handler.setLevel(logging.INFO)
+            stdout_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+
+            # Add both handlers to logger
+            logger.addHandler(file_handler)
+            logger.addHandler(stdout_handler)
 
             # Start logging
-            logging.info(f"Script '{script_name}' started at {timestamp}.")
+            logging.info(
+                f"Script '{script_name}' started at {timestamp} by {(epp_user.name if epp_user else 'unknown')}."
+            )
             logging.info(
                 f"Launched in step '{process.type.name}' ({process.id}) opened by {process.technician.name}."
             )
@@ -80,23 +123,23 @@ def epp_decorator(script_path: str, timestamp: str):
 
             # On script success
             else:
-                logging.info("Script completed successfully.")
+                logging.info("Script finished successfully. Uploading log file.")
                 logging.shutdown()
                 upload_file(
                     file_path=log_filename,
                     file_slot=args.log,
                     process=process,
                     lims=lims,
+                    remove=True,
                 )
                 # Check log for errors and warnings
-                log_content = open(log_filename).read()
-                os.remove(log_filename)
-                if "ERROR:" in log_content or "WARNING:" in log_content:
+                if logger.errors_or_warnings:
                     sys.stderr.write(
                         "Script finished successfully, but log contains errors or warnings, please have a look."
                     )
                     sys.exit(2)
                 else:
+                    sys.stdout.write("Script finished successfully.")
                     sys.exit(0)
 
         return epp_wrapper

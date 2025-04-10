@@ -7,6 +7,15 @@ https://nanoporetech.com/document/chemistry-technical-document#barcoding-kits
 https://nanoporetech.com/document/chemistry-technical-document#barcode-sequences
 
 """
+import re
+
+DESC = """This module contains ONT barcode data and builds some data structures to organize it.
+
+# ONT documentation on barcoding kits
+https://nanoporetech.com/document/chemistry-technical-document#barcoding-kits
+https://nanoporetech.com/document/chemistry-technical-document#barcode-sequences
+
+"""
 
 # This dictionary unequivocally maps an ONT barcode name to a sequence
 # Fetched and built 2025-03-19 by Alfred Kedhammar
