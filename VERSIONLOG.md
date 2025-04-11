@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250411.2
+
+Change SQL query for finding sample-label mappings in a pool to use pool artifact backtracking rather than using a submitted sample global query.
+
 ## 20250411.1
 
 Introduce EPP for generic UDF calculations.

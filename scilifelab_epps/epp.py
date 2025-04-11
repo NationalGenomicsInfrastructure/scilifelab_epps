@@ -588,26 +588,40 @@ def get_pool_sample_label_mapping(pool: Artifact) -> dict[str, str]:
     )
     cursor = connection.cursor()
 
-    # Find all reagent labels linked to 'analyte' type artifacts matching the given name
-    query = """
-        select
-            distinct( rl.name )
-        from
-            reagentlabel            rl,
-            artifact                art,
-            artifact_label_map      alm
-        where
-            rl.labelid              = alm.labelid
-            and art.artifactid      = alm.artifactid
-            and art.artifacttypeid  = 2
-            and art.name            = '{}';
+    """Supply a pool artifact ID and a sample name:
+    1. Find the ancestor artifacts of the pool artifact.
+    2. Filter for derived sample artifacts
+    3. Filter for artifacts sharing a name with the target sample
+    4. Filter for artifacts with reagent labels
+    """
+    query = """--sql
+        SELECT
+            DISTINCT rl.name
+        FROM
+            -- Table mapping artifact IDs to ancestor artifact IDs
+            artifact_ancestor_map aam
+            -- Join artifact information on ancestor artifact IDs
+            JOIN artifact parent ON aam.ancestorartifactid = parent.artifactid
+            -- Join reagent label information on ancestor artifact IDs
+            LEFT JOIN artifact_label_map alm ON parent.artifactid = alm.artifactid
+            LEFT JOIN reagentlabel rl ON rl.labelid = alm.labelid
+        WHERE
+            -- The pool artifact ID is used to find its ancestors
+            aam.artifactid = {}
+            -- Filter for derived sample artifacts
+            AND parent.artifacttypeid = 2
+            -- Filter for artifacts sharing a name with the target sample
+            AND parent.name = '{}'
+            -- Filter for artifacts with reagent labels
+            AND rl.name IS NOT NULL;
     """
 
     errors = False
     sample2label = {}
+    pool_db_id = int(pool.id.split("-")[1])
     for sample in pool.samples:
         try:
-            cursor.execute(query.format(sample.name))
+            cursor.execute(query.format(pool_db_id, sample.name))
             query_results = cursor.fetchall()
 
             assert len(query_results) != 0, (
