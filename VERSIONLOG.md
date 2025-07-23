@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250723.1
+
+Replace None with "" for writing N/A AVITI parameters to UDFs.
+
 ## 20250602.1
 
 Add assertion for demux parsing to prevent multiple flowcells in step.
