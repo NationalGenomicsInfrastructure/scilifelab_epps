@@ -291,8 +291,11 @@ def set_sample_values(demux_process, parser_struct, process_stats):
     assert len(set(container_names)) == 1, (
         f"All input pools must be in the same flowcell, found: {container_names}"
     )
-    assert container_names[0] in process_stats["Run ID"], (
-        f"Flowcell name {container_names[0]} seems unrelated to run {process_stats['Run ID']}"
+    run_id = process_stats["Run ID"]
+    if process_stats["Instrument"] == "NextSeq":
+        run_id = process_stats["Reagent Cartridge ID"]
+    assert container_names[0] in run_id, (
+        f"Flowcell name {container_names[0]} seems unrelated to run {run_id}"
     )
 
     for pool in demux_process.all_inputs():
