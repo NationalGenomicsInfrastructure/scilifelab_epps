@@ -7,6 +7,15 @@ https://nanoporetech.com/document/chemistry-technical-document#barcoding-kits
 https://nanoporetech.com/document/chemistry-technical-document#barcode-sequences
 
 """
+import re
+
+DESC = """This module contains ONT barcode data and builds some data structures to organize it.
+
+# ONT documentation on barcoding kits
+https://nanoporetech.com/document/chemistry-technical-document#barcoding-kits
+https://nanoporetech.com/document/chemistry-technical-document#barcode-sequences
+
+"""
 
 # This dictionary unequivocally maps an ONT barcode name to a sequence
 # Fetched and built 2025-03-19 by Alfred Kedhammar
@@ -614,7 +623,7 @@ def format_well(well: str) -> str:
     return f"{letter}:{num}"
 
 
-# Build a dict to map a LIMS reagent label to its properties
+# Build a dict to map a LIMS reagent label to it's properties
 ont_label2dict: dict[str, dict] = {}
 for lims_kit, labels in lims_kits2labels.items():
     for label in labels:
