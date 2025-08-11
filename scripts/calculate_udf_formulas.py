@@ -393,7 +393,6 @@ def apply_formula(
             except SkipCalculation:
                 continue
     elif step_type == "No Outputs":
-        logging.info("Step type: No-output")
         for art_in in [i for i in process.all_inputs() if i.type == "Analyte"]:
             logging.info(f"Calculations for input '{art_in.name}' ({art_in.id})")
             try:
