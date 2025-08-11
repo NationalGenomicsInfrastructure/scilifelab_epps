@@ -152,7 +152,7 @@ def parse_run_stats(run_dir):
 
 def calculate_mean(input_list, key):
     values = [d[key] for d in input_list if key in d and d[key] > 0]
-    mean_value = sum(values) / len(values) if values else None
+    mean_value = sum(values) / len(values) if values else ""
     return mean_value
 
 

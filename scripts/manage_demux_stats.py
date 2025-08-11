@@ -286,6 +286,18 @@ def set_sample_values(demux_process, parser_struct, process_stats):
                 "Unable to typecast included undetermined lanes. Possibly non-number in list",
             )
 
+    # Prevent multiple different flowcells in the same step
+    container_names = [pool.container.name for pool in demux_process.all_inputs()]
+    assert len(set(container_names)) == 1, (
+        f"All input pools must be in the same flowcell, found: {container_names}"
+    )
+    run_id = process_stats["Run ID"]
+    if process_stats["Instrument"] == "NextSeq":
+        run_id = process_stats["Reagent Cartridge ID"]
+    assert container_names[0] in run_id, (
+        f"Flowcell name {container_names[0]} seems unrelated to run {run_id}"
+    )
+
     for pool in demux_process.all_inputs():
         undet_reads = 0
         lane_reads = 0
@@ -293,7 +305,13 @@ def set_sample_values(demux_process, parser_struct, process_stats):
         samplesum = dict()
 
         try:
-            outarts_per_lane = demux_process.outputs_per_input(pool.id, ResultFile=True)
+            outarts_per_lane = []
+            for art_tuple in demux_process.input_output_maps:
+                if (
+                    art_tuple[0]["uri"].id == pool.id
+                    and art_tuple[1]["output-generation-type"] == "PerReagentLabel"
+                ):
+                    outarts_per_lane.append(art_tuple[1]["uri"])
         except Exception as e:
             problem_handler("exit", f"Unable to fetch artifacts of process: {str(e)}")
         if process_stats["Instrument"] == "miseq":
@@ -329,15 +347,34 @@ def set_sample_values(demux_process, parser_struct, process_stats):
         # Artifacts in each lane
         for target_file in outarts_per_lane:
             try:
-                current_name = target_file.samples[0].name
+                # This block addresses a LIMS bug in which multiple samples are tied to the same demux artifact
+                # In this case, try to find a single sample name matching the name of the demux artifact
+                if len(target_file.samples) > 1:
+                    logging.warning(
+                        f"Multiple samples {[i.name for i in target_file.samples]} linked to demux artifact '{target_file.name}' ({target_file.id})."
+                    )
+                    matching_names = [
+                        sample.name
+                        for sample in target_file.samples
+                        if sample.name in target_file.name
+                    ]
+                    if len(matching_names) > 1:
+                        raise AssertionError(
+                            f"Multiple linked samples '{matching_names}' matches demux artifact name. Cannot tell which is which."
+                        )
+                    elif len(matching_names) == 0:
+                        raise AssertionError(
+                            "No linked sample matches demux artifact name."
+                        )
+                    else:
+                        current_name = matching_names[0]
+                else:
+                    current_name = target_file.samples[0].name
             except Exception as e:
                 problem_handler(
                     "exit",
                     f"Unable to determine sample name. Incorrect sample variable in process: {str(e)}",
                 )
-            # Skip artifacts that are not sample-related
-            if current_name not in target_file.name:
-                continue
             for entry in parser_struct:
                 if lane_no == entry["Lane"]:
                     sample = entry["Sample"]

@@ -1,8 +1,62 @@
 # Scilifelab_epps Version Log
 
-## 20240410.1
+## 20250808.1
 
-Misc. ONT updates relating to new ONT workflow.
+Add case for NextSeq in BCL Conversion and Demultiplexing
+
+## 20250806.1
+
+Update and simplify ONT library parsing and MinKNOW samplesheet generation. Use single field for kit selection and retire QC/Anglerfish specific code.
+
+## 20250805.1
+
+Replace None with "" for writing N/A AVITI parameters to UDFs.
+
+## 20250801.1
+
+Order pools by lane in running notes from sequencing
+
+## 20250723.2
+
+Fix error trying to run json.dumps() on UDF dictionaries whose values are non-JSON-serializable by introducing custom encoder.
+
+## 20250723.1
+
+Enable Zika for applications generic process.
+
+## 20250602.1
+
+Add assertion for demux parsing to prevent multiple flowcells in step.
+
+## 20250513.1
+
+Add barcode scan settings to Zika worklists.
+
+## 20250509.1
+
+Create project automation to apply sample antibodies from CSV to UDFs.
+
+## 20250411.2
+
+Change SQL query for finding sample-label mappings in a pool to use pool artifact backtracking rather than using a submitted sample global query.
+
+## 20250411.1
+
+Introduce EPP for generic UDF calculations.
+
+## 20250410.3
+
+Change get_epp_user query to account for differet epp triggers
+
+## 20250410.2
+
+Patch last PR, don't include file slot artifacts in logic for parsing demux artifacts.
+
+## 20250410.1
+
+Introduce new EPP to fix bugged demux artifacts with multiple samples in the name by using sample-label linkage to identify the "correct" sample and rename the demux artifact accordingly.
+Demux EPP: Add logic block to handle demux artifacts being tied to multiple samples, in which case try to choose a single sample matching the name of the demux artifact.
+Utility function for mapping samples to labels in pool: Move into main module
 
 ## 20250408.1
 

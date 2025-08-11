@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import xml.etree.ElementTree as ET
@@ -146,6 +147,19 @@ def list_udfs(art: Artifact) -> list:
     return [item_tuple[0] for item_tuple in art.udf.items()]
 
 
+class CustomJSONEncoder(json.JSONEncoder):
+    """This class handles serialization of non-JSON-serializable
+    objects that can be encountered in LIMS.
+    """
+
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime) or isinstance(obj, datetime.date):
+            return obj.isoformat()
+        elif isinstance(obj, set):
+            return list(obj)
+        return super().default(obj)
+
+
 def fetch_last(
     target_art: Artifact,
     target_udfs: str | list,
@@ -219,12 +233,12 @@ def fetch_last(
                     else:
                         if log_traceback is True:
                             logging.info(
-                                f"Traceback:\n{json.dumps(traceback, indent=2)}"
+                                f"Traceback:\n{json.dumps(traceback, indent=2, cls=CustomJSONEncoder)}"
                             )
                         logging.info(
                             f"Found target UDF '{target_udf}'"
                             + f" with value '{current_art.udf[target_udf]}'"
-                            + f" in process {steps_visited[-1]}"
+                            + f" in process {steps_visited[-1] if pp else ''}"
                             + f" {'output' if pp else 'input'}"
                             + f" artifact '{current_art.name}' ({current_art.id})"
                         )

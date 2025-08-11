@@ -16,6 +16,8 @@ from logging.handlers import RotatingFileHandler
 from shutil import copy
 from time import localtime, strftime
 
+import psycopg2
+import yaml
 from genologics.config import MAIN_LOG
 from genologics.entities import Artifact, Process
 from genologics.lims import Lims
@@ -568,3 +570,78 @@ def upload_file(
     if remove:
         os.remove(file_path)
         logging.info(f"'{file_path}' removed from local filesystem.")
+
+
+def get_pool_sample_label_mapping(pool: Artifact) -> dict[str, str]:
+    """Given a pool artifact containing labeled samples, use database queries to
+    build a dictionary mapping each sample name to its reagent label.
+    """
+    with open("/opt/gls/clarity/users/glsai/config/genosqlrc.yaml") as f:
+        config = yaml.safe_load(f)
+
+    # Setup DB connection
+    connection = psycopg2.connect(
+        user=config["username"],
+        host=config["url"],
+        database=config["db"],
+        password=config["password"],
+    )
+    cursor = connection.cursor()
+
+    """Supply a pool artifact ID and a sample name:
+    1. Find the ancestor artifacts of the pool artifact.
+    2. Filter for derived sample artifacts
+    3. Filter for artifacts sharing a name with the target sample
+    4. Filter for artifacts with reagent labels
+    """
+    query = """--sql
+        SELECT
+            DISTINCT rl.name
+        FROM
+            -- Table mapping artifact IDs to ancestor artifact IDs
+            artifact_ancestor_map aam
+            -- Join artifact information on ancestor artifact IDs
+            JOIN artifact parent ON aam.ancestorartifactid = parent.artifactid
+            -- Join reagent label information on ancestor artifact IDs
+            LEFT JOIN artifact_label_map alm ON parent.artifactid = alm.artifactid
+            LEFT JOIN reagentlabel rl ON rl.labelid = alm.labelid
+        WHERE
+            -- The pool artifact ID is used to find its ancestors
+            aam.artifactid = {}
+            -- Filter for derived sample artifacts
+            AND parent.artifacttypeid = 2
+            -- Filter for artifacts sharing a name with the target sample
+            AND parent.name = '{}'
+            -- Filter for artifacts with reagent labels
+            AND rl.name IS NOT NULL;
+    """
+
+    errors = False
+    sample2label = {}
+    pool_db_id = int(pool.id.split("-")[1])
+    for sample in pool.samples:
+        try:
+            cursor.execute(query.format(pool_db_id, sample.name))
+            query_results = cursor.fetchall()
+
+            assert len(query_results) != 0, (
+                f"No reagent labels found for sample '{sample.name}'."
+            )
+            assert len(query_results) == 1, (
+                f"Multiple reagent labels found for sample '{sample.name}'."
+            )
+
+            label = query_results[0][0]
+            sample2label[sample.name] = label
+        except AssertionError as e:
+            logging.error(str(e), exc_info=True)
+            logging.warning(f"Skipping sample '{sample.name}' due to error.")
+            errors = True
+            continue
+
+    if errors:
+        raise AssertionError(
+            "Errors occurred when linking samples and indices. Please report this error."
+        )
+    else:
+        return sample2label

@@ -89,10 +89,14 @@ def main(args):
 
     note_creation_date = datetime.datetime.now()
     epp_initiator = get_epp_user(lims, pro.id)
-    for project in projects:
+    project_ordered_lanes = {
+        key: sorted(value, key=lambda x: int(pools[x]["lane"]))
+        for key, value in projects.items()
+    }
+    for project in project_ordered_lanes:
         project_comments = "\n".join(project_specific_comments.get(project, []))
         pool_text = ""
-        for pool_id in projects[project]:
+        for pool_id in project_ordered_lanes[project]:
             pool = pools[pool_id]
             pool_text += f"Pool '{pool['pool_name']}' in lane {pool['lane']}, {pool['Loading Conc. (pM)']}pM, {pool['% phiX']}% PhiX, \n"
         note = (

@@ -16,9 +16,8 @@ from genologics.lims import Lims
 from Levenshtein import distance
 
 from data.Chromium_10X_indexes import Chromium_10X_indexes
-from scilifelab_epps.epp import upload_file
+from scilifelab_epps.epp import get_pool_sample_label_mapping, upload_file
 from scilifelab_epps.wrapper import epp_decorator
-from scripts.generate_minknow_samplesheet import get_pool_sample_label_mapping
 
 TIMESTAMP = dt.now().strftime("%y%m%d_%H%M%S")
 

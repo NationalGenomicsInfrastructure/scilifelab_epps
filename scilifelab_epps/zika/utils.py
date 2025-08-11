@@ -389,6 +389,10 @@ def write_worklist(df, deck, wl_filename, comments=None, max_transfers_per_tip=1
             variable_definitions.append(tip_strat[0])
         wl.write(",".join(variable_definitions) + "\n")
 
+        # Add barcode settings
+        wl.write("[PROTOCOLOPTION]SCAN_BARCODES,TRUE\n")
+        wl.write("[PROTOCOLOPTION]ABORT_ON_BAD_BARCODE,TRUE\n")
+
         # Write header
         wl.write(f"COMMENT, This is the worklist {wl_filename}\n")
         if comments:

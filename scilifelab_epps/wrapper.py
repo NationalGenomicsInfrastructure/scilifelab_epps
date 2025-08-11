@@ -91,6 +91,8 @@ def epp_decorator(script_path: str, timestamp: str):
             logger.addHandler(stdout_handler)
 
             # Start logging
+            if not epp_user:
+                logging.warning("No EPP user found for process ID {args.pid}.")
             logging.info(
                 f"Script '{script_name}' started at {timestamp} by {(epp_user.name if epp_user else 'unknown')}."
             )

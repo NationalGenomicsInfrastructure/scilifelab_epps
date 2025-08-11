@@ -8,16 +8,13 @@ from argparse import ArgumentParser
 from datetime import datetime as dt
 
 import pandas as pd
-import psycopg2
-import yaml
 from genologics.config import BASEURI, PASSWORD, USERNAME
 from genologics.entities import Artifact, Process
 from genologics.lims import Lims
 from tabulate import tabulate
 
-from data.ONT_barcodes import format_well, ont_label2dict
-from scilifelab_epps.epp import traceback_to_step, upload_file
-from scilifelab_epps.utils.udf_tools import fetch
+from data.ONT_barcodes import ont_label2dict
+from scilifelab_epps.epp import get_pool_sample_label_mapping, upload_file
 from scilifelab_epps.wrapper import epp_decorator
 
 DESC = """ Script to generate MinKNOW samplesheet for starting ONT runs.
@@ -51,131 +48,36 @@ def get_ont_library_contents(
     # Instantiate list to collect dataframe rows
     rows = []
 
-    # Remaining possibilities:
-    # (1) ONT-barcodes and Illumina indexes
-    # (2) ONT-barcodes only
-    # (3) Illumina-indexes only
-    # (4) No labels
-
     # See if library can be backtracked to an ONT pooling step
-    ont_pooling_traceback = traceback_to_step(
-        ont_library, re.compile(r"ONT.*Pooling"), allow_multiple_inputs=True
-    )
-    if ont_pooling_traceback is not None:
-        # Remaining possibilities:
-        # (1) ONT-barcodes and Illumina indexes
-        # (2) ONT-barcodes only
+    if len(ont_library.samples) > 1:
+        library_contents_msg += f"\n - '{ont_library.name}': ONT-barcoded pool"
 
-        _ont_pooling_step, ont_pooling_inputs, ont_pooling_output = (
-            ont_pooling_traceback
-        )
-
-        library_contents_msg += f"\n - '{ont_pooling_output.name}': ONT-barcoded pool"
-
-        # Iterate across ONT pooling inputs
-        for ont_pooling_input in ont_pooling_inputs:
-            if len(ont_pooling_input.samples) > 1:
-                # Remaining possibilities:
-                # (1) ONT-barcodes and Illumina indexes
-
-                # ONT barcodes on Illumina libraries are assigned via UDFs rather than reagent labels, since LIMS can't handle double demultiplexing
-                udf_ont_barcode_well = fetch(
-                    ont_pooling_input, "ONT Barcode Well", on_fail=None
-                )
-                assert udf_ont_barcode_well, (
-                    f"Pooling input '{ont_pooling_input.name}' consists of multiple samples, but has not been assigned an ONT barcode."
-                )
-
-                # Link ONT barcode well to ONT barcode
-                ont_barcode_well2label = {}
-                for label, label_properties in ont_label2dict.items():
-                    ont_barcode_well2label[label_properties["well"]] = label
-                sanitized_well = format_well(udf_ont_barcode_well)
-                ont_barcode = ont_barcode_well2label[sanitized_well]
-
-                library_contents_msg += f"\n\t - '{ont_pooling_input.name}': Illumina indexed pool with ONT-barcode '{ont_barcode}'"
-
-                for sample in ont_pooling_input.samples:
-                    library_contents_msg += f"\n\t\t - '{sample.name}': Illumina sample with index '{sample2label[sample.name]}'."
-                    rows.append(
-                        {
-                            "sample_name": sample.name,
-                            "sample_id": sample.id,
-                            "project_name": sample.project.name,
-                            "project_id": sample.project.id,
-                            "illumina_index": sample2label[sample.name],
-                            "illumina_pool_name": ont_pooling_input.name,
-                            "illumina_pool_id": ont_pooling_input.id,
-                            "ont_barcode": ont_barcode,
-                            "ont_pool_name": ont_pooling_output.name,
-                            "ont_pool_id": ont_pooling_output.id,
-                        }
-                    )
-
-            elif len(ont_pooling_input.samples) == 1:
-                # Remaining possibilities:
-                # (2) ONT-barcodes only
-                assert len(ont_pooling_input.reagent_labels) == 1, (
-                    f"ONT-pooling input '{ont_pooling_input.name}' lacks any reagent labels. Mixing barcoded and non-barcoded samples is not allowed."
-                )
-
-                # ONT barcode-level demultiplexing
-                for ont_sample in ont_pooling_input.samples:
-                    library_contents_msg += f"\n\t - '{ont_pooling_input.name}': ONT sample with barcode '{sample2label[ont_sample.name]}'"
-                    rows.append(
-                        {
-                            "sample_name": ont_sample.name,
-                            "sample_id": ont_sample.id,
-                            "project_name": ont_sample.project.name,
-                            "project_id": ont_sample.project.id,
-                            "ont_barcode": sample2label[ont_sample.name],
-                            "ont_pool_name": ont_pooling_output.name,
-                            "ont_pool_id": ont_pooling_output.id,
-                        }
-                    )
-
-            else:
-                raise AssertionError(
-                    f"ONT-pooling input '{ont_pooling_input.name}' lacks any samples."
-                )
-
-    else:
-        # Remaining possibilities:
-        # (3) Illumina-indexes only
-        # (4) No labels
-
-        if len(ont_library.reagent_labels) > 0:
-            # Remaining possibilities:
-            # (3) Illumina-indexes only
-
-            for sample in ont_library.samples:
-                library_contents_msg += f"\n - '{sample.name}': Illumina sample with index '{sample2label[sample.name]}'."
-                rows.append(
-                    {
-                        "sample_name": sample.name,
-                        "sample_id": sample.id,
-                        "project_name": sample.project.name,
-                        "project_id": sample.project.id,
-                        "illumina_index": sample2label[sample.name],
-                        "illumina_pool_name": ont_library.name,
-                        "illumina_pool_id": ont_library.id,
-                    }
-                )
-
-        else:
-            # Remaining possibilities:
-            # (4) No labels
-            sample = ont_library.samples[0]
-
-            library_contents_msg += f"\n - {sample.name}: Non-labeled sample"
+        for ont_sample in ont_library.samples:
+            library_contents_msg += f"\n\t - '{ont_sample.name}': ONT sample with barcode '{sample2label[ont_sample.name]}'"
             rows.append(
                 {
-                    "sample_name": sample.name,
-                    "sample_id": sample.id,
-                    "project_name": sample.project.name,
-                    "project_id": sample.project.id,
+                    "sample_name": ont_sample.name,
+                    "sample_id": ont_sample.id,
+                    "project_name": ont_sample.project.name,
+                    "project_id": ont_sample.project.id,
+                    "ont_barcode": sample2label[ont_sample.name],
+                    "ont_pool_name": ont_library.name,
+                    "ont_pool_id": ont_library.id,
                 }
             )
+
+    else:
+        sample = ont_library.samples[0]
+
+        library_contents_msg += f"\n - {sample.name}: Non-labeled sample"
+        rows.append(
+            {
+                "sample_name": sample.name,
+                "sample_id": sample.id,
+                "project_name": sample.project.name,
+                "project_id": sample.project.id,
+            }
+        )
 
     if list_contents:
         logging.info(library_contents_msg)
@@ -189,75 +91,6 @@ def get_ont_library_contents(
         )
 
     return df
-
-
-def get_pool_sample_label_mapping(pool: Artifact) -> dict[str, str]:
-    with open("/opt/gls/clarity/users/glsai/config/genosqlrc.yaml") as f:
-        config = yaml.safe_load(f)
-
-    # Setup DB connection
-    connection = psycopg2.connect(
-        user=config["username"],
-        host=config["url"],
-        database=config["db"],
-        password=config["password"],
-    )
-    cursor = connection.cursor()
-
-    # Find all reagent labels linked to 'analyte' type artifacts matching the given name
-    query = """
-        select
-            distinct( rl.name )
-        from
-            reagentlabel            rl,
-            artifact                art,
-            artifact_label_map      alm
-        where
-            rl.labelid              = alm.labelid
-            and art.artifactid      = alm.artifactid
-            and art.artifacttypeid  = 2
-            and art.name            = '{}';
-    """
-
-    errors = False
-    sample2label = {}
-    for sample in pool.samples:
-        try:
-            cursor.execute(query.format(sample.name))
-            query_results = cursor.fetchall()
-
-            assert len(query_results) != 0, (
-                f"No reagent labels found for sample '{sample.name}'."
-            )
-            assert len(query_results) == 1, (
-                f"Multiple reagent labels found for sample '{sample.name}'."
-            )
-
-            label = query_results[0][0]
-            sample2label[sample.name] = label
-        except AssertionError as e:
-            logging.error(str(e), exc_info=True)
-            logging.warning(f"Skipping sample '{sample.name}' due to error.")
-            errors = True
-            continue
-
-    if errors:
-        raise AssertionError(
-            "Errors occurred when linking samples and indices. Please report this error."
-        )
-    else:
-        return sample2label
-
-
-def get_kit_string(process: Process) -> str:
-    """Combine prep kit and expansion kit UDFs (if any) into space-separated string"""
-    prep_kit = process.udf.get("ONT prep kit")
-    expansion_kit = process.udf.get("ONT expansion kit")
-
-    if expansion_kit != "None":
-        prep_kit += f" {expansion_kit.replace('.', '-')}"
-
-    return prep_kit
 
 
 def sanitize_string(string: str) -> str:
@@ -307,10 +140,10 @@ def generate_MinKNOW_samplesheet(process):
 
     flow_cell_id                E.g. 'PAM96489'
     position_id                 Only included for PromethION runs: '1A', '1B', ... '3G'
-    sample_id                   LIMS sample/pool name, stripped of problematic characters, optionally prepended with "QC_"
-    experiment_id               LIMS process ID, optionally prepended with "QC_"
+    sample_id                   LIMS sample/pool name, stripped of problematic characters
+    experiment_id               LIMS process ID
     flow_cell_product_code      E.g. 'FLO-MIN106D'
-    kit                         Product codes separated by spaces, e.g. 'SQK-LSK109 EXP-NBD196'
+    kit                         Product code of kit. In the case of multiple kit, the expansion kit takes precedence
     alias                       Only included for barcoded pools, LIMS sample name stripped, of problematic characters
     barcode                     E.g. 'barcode01', 'barcode02', etc, fetched from LIMS
 
@@ -327,19 +160,9 @@ def generate_MinKNOW_samplesheet(process):
 
     """
 
-    qc = True if "QC" in process.type.name else False
-    logging.info(f"QC run: {qc}")
-
     errors = []
 
-    valid_flowcell_type_strings = [
-        "FLO-PRO002 (PromethION R9.4.1)",
-        "FLO-MIN106D (MinION R9.4.1)",
-        "FLO-FLG001 (Flongle R9.4.1)",
-        "FLO-PRO114M (PromethION R10.4.1)",
-        "FLO-MIN114 (MinION R10.4.1)",
-        "FLO-FLG114 (Flongle R10.4.1)",
-    ]
+    lims_kit = process.udf["ONT prep kit"]
 
     ont_libraries = [art for art in process.all_outputs() if art.type == "Analyte"]
     ont_libraries.sort(key=lambda art: art.id)
@@ -348,7 +171,7 @@ def generate_MinKNOW_samplesheet(process):
     for ont_library in ont_libraries:
         # In case of errors, skip to next artifact
         try:
-            # Perform sample-level demultiplexing on the library to see if it's a QC run
+            # Perform sample-level demultiplexing on the library
             # i.e. if the ONT pooling inputs consist of Illumina pools
             library_df = get_ont_library_contents(
                 ont_library=ont_library,
@@ -360,11 +183,6 @@ def generate_MinKNOW_samplesheet(process):
                 f"'{ont_library.name}' parsed as containing {'' if ont_barcodes else 'no '}ONT barcodes"
             )
 
-            # Assert flowcell type is written in a valid format
-            assert process.udf["ONT flow cell type"] in valid_flowcell_type_strings, (
-                f"Invalid flow cell type {process.udf['ONT flow cell type']}."
-            )
-
             # Parse flowcell product code
             flowcell_product_code = process.udf["ONT flow cell type"].split(" ", 1)[0]
             flow_cell_type = (
@@ -373,13 +191,11 @@ def generate_MinKNOW_samplesheet(process):
 
             # Start building the row in the samplesheet corresponding to the current artifact
             row = {
-                "experiment_id": process.id if not qc else f"QC_{process.id}",
-                "sample_id": sanitize_string(ont_library.name)
-                if not qc
-                else f"QC_{sanitize_string(ont_library.name)}",
+                "experiment_id": process.id,
+                "sample_id": sanitize_string(ont_library.name),
                 "flow_cell_product_code": flowcell_product_code,
                 "flow_cell_type": flow_cell_type,
-                "kit": get_kit_string(process),
+                "kit": lims_kit,
                 "flow_cell_id": ont_library.udf["ONT flow cell ID"],
                 "position_id": ont_library.udf["ONT flow cell position"],
             }
@@ -394,17 +210,15 @@ def generate_MinKNOW_samplesheet(process):
                     "Positions must be unassigned for non-PromethION flow cells."
                 )
 
-            # 1) Barcodes implied from kit selection
-            if process.udf.get("ONT expansion kit") != "None" or process.udf.get(
-                "ONT prep kit"
-            ) in ["SQK-PCB114-24"]:
+            # 1) Barcodes implied from kit selection, kit ends with '24' or '96'
+            if lims_kit[-2:] in ["24", "96"]:
                 # Assert barcodes are found within library
                 assert ont_barcodes, (
                     f"ONT barcodes are implied from kit selection, but no ONT barcodes were found within library {ont_library.name}"
                 )
 
                 # Append rows for each barcode
-                alias_column_name = "illumina_pool_name" if qc else "sample_name"
+                alias_column_name = "sample_name"
                 barcode_rows_data = (
                     library_df[[alias_column_name, "ont_barcode"]]
                     .drop_duplicates()
