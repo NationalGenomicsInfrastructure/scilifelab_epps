@@ -217,18 +217,20 @@ def get_val_from_placeholder(
             val = obj.udf.get(udf_name)
 
         if val is None:
+            # Re-try next UDF
             if i + 1 < len(udf_names):
                 continue
+            # All UDFs tried
             else:
                 udf_names_quoted = [f"'{i}'" for i in udf_names]
                 msg = (
                     "Could not resolve any of "
                     + f"UDFs {', '.join(udf_names_quoted)} "
                     + f"for {obj_type} '{obj.type.name if 'step' in placeholder else obj.name}' "
-                    + f"({obj.id}). Skipping calculation."
+                    + f"({obj.id})."
                 )
                 logging.info(msg)
-                raise SkipCalculation()
+                val = None
         else:
             break
 
@@ -241,7 +243,9 @@ def get_val_from_placeholder(
         # Only clarify which UDF was used if multiple ones were provided
         logging.info(f"Resolved {placeholder} UDF '{udf_name}' to {val}")
 
-    assert isinstance(val, (int, str, float)), f"Unexpected type for val: {type(val)}"
+    assert isinstance(val, (int, str, float)) or val is None, (
+        f"Unexpected type for val: {type(val)}"
+    )
 
     return val
 
