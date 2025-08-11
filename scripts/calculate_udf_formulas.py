@@ -63,8 +63,9 @@ Defintions:
         one another, i.e. the first calculation to write to the field will be
         the one to stick.
 
-        Right-hand side placeholders that can't be resolved will result in skipping the
-        calculation. The silent skipping allows us to have multiple formulas targeting
+        Right-hand side placeholders that can't be resolved will resolve to None.
+        If the right-hand side can't be evaluated without an error, the calculation will be skipped.
+        The silent skipping allows us to have multiple formulas targeting
         the same UDF that can be run in priority order without raising errors or
         warnings.
 
@@ -340,8 +341,9 @@ def eval_rh(
     try:
         lh_val = eval(rh_eval_string)
     except Exception as e:
-        logging.error(f'Could not evaluate: "{rh_eval_string}"')
-        raise e
+        logging.warning(f'Could not evaluate: "{rh_eval_string}"')
+        raise SkipCalculation(e)
+
     assert type(lh_val) in [float, int, str], (
         f'Evaluation of "{rh_eval_string}" gave invalid output: "{lh_val}" of type "{type(lh_val)}"'
     )
