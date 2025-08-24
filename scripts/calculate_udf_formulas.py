@@ -63,8 +63,9 @@ Defintions:
         one another, i.e. the first calculation to write to the field will be
         the one to stick.
 
-        Right-hand side placeholders that can't be resolved will result in skipping the
-        calculation. The silent skipping allows us to have multiple formulas targeting
+        Right-hand side placeholders that can't be resolved will resolve to None.
+        If the right-hand side can't be evaluated without an error, the calculation will be skipped.
+        The silent skipping allows us to have multiple formulas targeting
         the same UDF that can be run in priority order without raising errors or
         warnings.
 
@@ -217,18 +218,20 @@ def get_val_from_placeholder(
             val = obj.udf.get(udf_name)
 
         if val is None:
+            # Re-try next UDF
             if i + 1 < len(udf_names):
                 continue
+            # All UDFs tried
             else:
                 udf_names_quoted = [f"'{i}'" for i in udf_names]
                 msg = (
                     "Could not resolve any of "
                     + f"UDFs {', '.join(udf_names_quoted)} "
                     + f"for {obj_type} '{obj.type.name if 'step' in placeholder else obj.name}' "
-                    + f"({obj.id}). Skipping calculation."
+                    + f"({obj.id})."
                 )
                 logging.info(msg)
-                raise SkipCalculation()
+                val = None
         else:
             break
 
@@ -241,7 +244,9 @@ def get_val_from_placeholder(
         # Only clarify which UDF was used if multiple ones were provided
         logging.info(f"Resolved {placeholder} UDF '{udf_name}' to {val}")
 
-    assert isinstance(val, (int, str, float)), f"Unexpected type for val: {type(val)}"
+    assert isinstance(val, (int, str, float)) or val is None, (
+        f"Unexpected type for val: {type(val)}"
+    )
 
     return val
 
@@ -336,8 +341,11 @@ def eval_rh(
     try:
         lh_val = eval(rh_eval_string)
     except Exception as e:
-        logging.error(f'Could not evaluate: "{rh_eval_string}"')
-        raise e
+        logging.warning(
+            f'Could not evaluate: "{rh_eval_string}". Exception: {e}. Skipping.'
+        )
+        raise SkipCalculation()
+
     assert type(lh_val) in [float, int, str], (
         f'Evaluation of "{rh_eval_string}" gave invalid output: "{lh_val}" of type "{type(lh_val)}"'
     )
@@ -385,7 +393,6 @@ def apply_formula(
             except SkipCalculation:
                 continue
     elif step_type == "No Outputs":
-        logging.info("Step type: No-output")
         for art_in in [i for i in process.all_inputs() if i.type == "Analyte"]:
             logging.info(f"Calculations for input '{art_in.name}' ({art_in.id})")
             try:
