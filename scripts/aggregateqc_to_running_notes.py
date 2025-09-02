@@ -2,7 +2,6 @@
 DESC = """EPP script to summarize aggregate QC results to the projects running notes
 Author: Chuan Wang, Science for Life Laboratory, Stockholm, Sweden
 """
-import datetime
 import json
 import sys
 from argparse import ArgumentParser
@@ -231,8 +230,6 @@ def make_summary(lims, process, sample_table, library):
                     comments += f"\nQC details for container **{container}**: \n"
                     comments += QC_details_per_container
         noteobj = {}
-        key = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        noteobj[key] = {}
         note = "Summary from {} ({}) : \n{}".format(
             process.type.name,
             "[LIMS]({}/clarity/work-details/{})".format(
@@ -240,12 +237,9 @@ def make_summary(lims, process, sample_table, library):
             ),
             comments,
         )
-        noteobj[key]["note"] = note
-        noteobj[key]["user"] = (
-            f"{process.technician.first_name} {process.technician.last_name}"
-        )
-        noteobj[key]["email"] = process.technician.email
-        noteobj[key]["category"] = "Lab"
+        noteobj["note"] = note
+        noteobj["email"] = process.technician.email
+        noteobj["category"] = "Lab"
         summary.update({proj: noteobj})
     return summary
 
@@ -264,27 +258,11 @@ def main(lims, args):
     summary = make_summary(lims, pro, sample_table, library)
 
     # Write summary to couch
-    DATE_FORMATS = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"]
     for proj, noteobj in summary.items():
-        for k, v in noteobj.items():
-            for date_format in DATE_FORMATS:
-                try:
-                    key = datetime.datetime.strptime(k, date_format).astimezone(
-                        datetime.timezone.utc
-                    )
-                except ValueError:
-                    pass
-                else:
-                    break
-            category = v.pop("category")
-            v["categories"] = list(map(str.strip, category.split(",")))
-            v["note_type"] = "project"
-            v["parent"] = proj
-            v["created_at_utc"] = key.isoformat()
-            v["updated_at_utc"] = key.isoformat()
-            v["projects"] = [proj]
-            v["_id"] = f"{proj}:{datetime.datetime.timestamp(key)}"
-            write_note_to_couch(proj, key, v, lims.get_uri())
+        category = noteobj.pop("category")
+        noteobj["categories"] = list(map(str.strip, category.split(",")))
+        noteobj["note_type"] = "project"
+        write_note_to_couch(proj, noteobj, lims.get_uri())
 
 
 if __name__ == "__main__":

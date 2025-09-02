@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 DESC = """EPP used to create running notes from the workset generation """
 
-import datetime
 import os
 import sys
 from argparse import ArgumentParser
@@ -19,7 +18,6 @@ def main(lims, args):
     log = []
     datamap = {}
     wsname = None
-    username = f"{p.technician.first_name} {p.technician.last_name}"
     user_email = p.technician.email
     for art in p.all_inputs():
         if len(art.samples) != 1:
@@ -39,7 +37,6 @@ def main(lims, args):
         except:
             pass
 
-    key = datetime.datetime.now(datetime.timezone.utc)
     for pid in datamap:
         pj = Project(lims, id=pid)
         if len(datamap[pid]) > 1:
@@ -49,16 +46,10 @@ def main(lims, args):
 
         running_note = {}
         running_note["note"] = rnt
-        running_note["user"] = username
         running_note["email"] = user_email
         running_note["categories"] = ["Workset"]
         running_note["note_type"] = "project"
-        running_note["parent"] = pid
-        running_note["created_at_utc"] = key.isoformat()
-        running_note["updated_at_utc"] = key.isoformat()
-        running_note["projects"] = [pid]
-        running_note["_id"] = f"{pid}:{datetime.datetime.timestamp(key)}"
-        write_note_to_couch(pid, key, running_note, lims.get_uri())
+        write_note_to_couch(pid, running_note, lims.get_uri())
         log.append(
             f"Updated project {pid} : {pj.name}, {len(datamap[pid])} samples in this workset"
         )

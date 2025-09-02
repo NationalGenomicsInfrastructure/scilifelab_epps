@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250902.1
+
+Use JWT tokens to call Genomics Status API to create running notes instead to writing directly to the backend
+
 ## 20250821.1
 
 Bugfix VC100 parsing script. File contents are loaded as string straight away.
