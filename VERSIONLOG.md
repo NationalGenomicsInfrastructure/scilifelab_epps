@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250905.1
+
+Make AVITI run manifest EPP accept noIndex cases.
+
 ## 20250821.1
 
 Bugfix VC100 parsing script. File contents are loaded as string straight away.

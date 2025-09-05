@@ -100,7 +100,7 @@ def idxs_from_label(label: str) -> list[str | tuple[str, str]]:
     elif label.replace(",", "").upper() == "NOINDEX" or (
         label.replace(",", "").upper() == ""
     ):
-        raise AssertionError("NoIndex cases not allowed.")
+        pass  # Returns empty list
     # Ordinary indexes
     elif IDX_PAT.findall(label):
         match = IDX_PAT.findall(label)[0]
@@ -197,50 +197,71 @@ def get_manifests(
                 project = "Control"
                 seq_setup = "0-0"
 
-            # Add row(s), depending on index type
+            # Make sample row
             lims_label = sample2label[sample.name]
-            for idx in idxs_from_label(lims_label):
-                row = {}
-                row["SampleName"] = sample.name
-                if isinstance(idx, tuple):
-                    row["Index1"], row["Index2"] = idx
-                    # Special cases to reverse-complement index2
-                    if not user_library or (
-                        user_library
-                        and (
-                            TENX_DUAL_PAT.findall(lims_label)
-                            or SMARTSEQ_PAT.findall(lims_label)
-                        )
-                    ):
-                        logging.info(f"Reverse-complementing index2 of {sample.name}.")
-                        row["Index2"] = revcomp(row["Index2"])
-                else:
-                    row["Index1"] = idx
-                    # Assume long idx2 from recipe + no idx2 from label means idx2 is UMI
-                    if int(process.udf.get("Index Read 2", 0)) > 12:
-                        row["Index2"] = "N" * int(process.udf["Index Read 2"])
-                    else:
-                        row["Index2"] = ""
-                row["Lane"] = lane
-                row["Project"] = project
-                row["Recipe"] = seq_setup
-                row["phix_loaded"] = phix_loaded
-                row["phix_set_name"] = phix_set_name
-                row["lims_label"] = lims_label
 
-                # Add special case settings
-                row_settings = {}
-                if TENX_SINGLE_PAT.findall(lims_label):
-                    # For 10X 8-mer single indexes (e.g. SI-NA-A1) it is usually required that
-                    #  index 1 sequences shall be written as a separate FastQ file (I1).
-                    # In this case we need the additional option I1Fastq,TRUE.
-                    row_settings["I1Fastq"] = "True"
-                row["settings"] = dict_to_manifest_col(row_settings)
+            row = {}
+            row["SampleName"] = sample.name
+            row["Lane"] = lane
+            row["Project"] = project
+            row["Recipe"] = seq_setup
+            row["phix_loaded"] = phix_loaded
+            row["phix_set_name"] = phix_set_name
+            row["lims_label"] = lims_label
 
+            # Add special case settings
+            row_settings = {}
+            if TENX_SINGLE_PAT.findall(lims_label):
+                # For 10X 8-mer single indexes (e.g. SI-NA-A1) it is usually required that
+                #  index 1 sequences shall be written as a separate FastQ file (I1).
+                # In this case we need the additional option I1Fastq,TRUE.
+                row_settings["I1Fastq"] = "True"
+            row["settings"] = dict_to_manifest_col(row_settings)
+
+            # Append one or more sample rows to list, depending on indexes
+            idxs = idxs_from_label(lims_label)
+            if not idxs:
+                logging.info(
+                    f"No indexes found for {sample.name} from pool {pool.name} of lane {lane}."
+                )
+                row["Index1"] = ""
+                row["Index2"] = ""
                 sample_rows.append(row)
+            else:
+                for idx in idxs:
+                    if isinstance(idx, tuple):
+                        row["Index1"], row["Index2"] = idx
+                        # Special cases to reverse-complement index2
+                        if not user_library or (
+                            user_library
+                            and (
+                                TENX_DUAL_PAT.findall(lims_label)
+                                or SMARTSEQ_PAT.findall(lims_label)
+                            )
+                        ):
+                            logging.info(
+                                f"Reverse-complementing index2 of {sample.name}."
+                            )
+                            row["Index2"] = revcomp(row["Index2"])
+                    else:
+                        row["Index1"] = idx
+                        # Assume long idx2 from recipe + no idx2 from label means idx2 is UMI
+                        if int(process.udf.get("Index Read 2", 0)) > 12:
+                            row["Index2"] = "N" * int(process.udf["Index Read 2"])
+                        else:
+                            row["Index2"] = ""
+
+                    sample_rows.append(row)
 
     # Compile sample dataframe
     df_samples = pd.DataFrame(sample_rows)
+
+    # Check for multiple un-indexed samples
+    for lane, group in df_samples.groupby(["Lane"]):
+        if (group["Index1"].eq("") & group["Index2"].eq("")).any():
+            assert len(group) == 1, (
+                f"Lane {lane} appears to have multiple un-indexed samples "
+            )
 
     # Add PhiX controls
     df_samples_and_controls = df_samples.copy()
