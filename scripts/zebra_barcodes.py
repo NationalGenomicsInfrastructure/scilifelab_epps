@@ -2,248 +2,167 @@
 import datetime
 import logging
 import subprocess
-import sys
 from argparse import ArgumentParser
 
 from genologics.config import BASEURI, PASSWORD, USERNAME
 from genologics.entities import Process
 from genologics.lims import Lims
 
-from scilifelab_epps.epp import EppLogger
+from scilifelab_epps.epp import upload_file
+from scilifelab_epps.wrapper import epp_decorator
+
+TIMESTAMP = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
 
 
-def makeContainerBarcode(plateid, copies=1):
-    """Construct label with container id as human readable and barcode"""
+def build_zpl_format(format_lines, data_lines, copies=1):
+    """Helper to build ZPL format and data for a label."""
     lines = []
-    lines.append("^XA")  # start of label
-    # download and store format, name of format,
-    # end of field data (FS = field stop)
-    lines.append("^DFFORMAT^FS")
-    lines.append("^LH0,0")  # label home position (label home = LH)
-    # AF = assign font F, field number 1 (FN1),
-    # print text at position field origin (FO) rel. to home
-    lines.append("^FO360,30^AFN 78,39^FN1^FS")
-    # BC=barcode 128, field number 2, Normal orientation,
-    # height 70, no interpreation line.
-    lines.append("^FO70,10^BCN,70,N,N^FN2^FS")
-    lines.append("^XZ")  # end format
-
-    for copy in range(copies):
-        lines.append("^XA")  # start of label format
-        lines.append("^XFFORMAT^FS")  # label home position
-        lines.append("^FN1^FD" + plateid + "^FS")  # this is readable
-        lines.append("^FN2^FD" + plateid + "^FS")  # this is also readable
-        lines.append("^XZ")
+    lines.append("^XA")  # Start format definition
+    lines.append("^DFFORMAT^FS")  # Delete previous format named FORMAT
+    lines.append("^LH0,0")  # Set label home position
+    lines.extend(format_lines)  # Add format (layout) commands
+    lines.append("^XZ")  # End format definition
+    for _ in range(copies):
+        lines.append("^XA")  # Start label instance
+        lines.append("^XFFORMAT^FS")  # Recall the format defined above
+        lines.extend(data_lines)  # Add data fields for this label
+        lines.append("^XZ")  # End label instance
     return lines
+
+
+def make_container_label(plateid, copies=1):
+    """Construct label with container id as human readable and barcode"""
+    format_lines = [
+        "^FO360,30^AFN 78,39^FN1^FS",  # Field origin, font, field number 1 (human readable)
+        "^FO70,10^BCN,70,N,N^FN2^FS",  # Field origin, barcode, field number 2 (barcode)
+    ]
+    data_lines = [
+        f"^FN1^FD{plateid}^FS",  # Assign plateid to field 1 (human readable)
+        f"^FN2^FD{plateid}^FS",  # Assign plateid to field 2 (barcode)
+    ]
+    return build_zpl_format(format_lines, data_lines, copies)
 
 
 def makeContainerNameBarcode(plate_name, copies=1):
-    """Constrcut label with container name as human readable"""
-    lines = []
-    lines.append("^XA")  # start of label
-    # download and store format, name of format,
-    # end of field data (FS = field stop)
-    lines.append("^DFFORMAT^FS")
-    lines.append("^LH0,0")  # label home position (label home = LH)
-    # AF = assign font F, field number 1 (FN1),
-    # print text at position field origin (FO) rel. to home
+    """Construct label with container name as human readable"""
+    format_lines = []
+    # Adjust font size and position based on name length
     if len(plate_name) > 21:
-        # Use smaller font, fits 28 chars
-        lines.append("^FO20,40^AFN 54,30^FN1^FS")
+        format_lines.append("^FO20,40^AFN 54,30^FN1^FS")  # Smaller font for long names
     else:
-        # Use larger font, fits 21 chars
-        lines.append("^FO20,30^AFN 78,39^FN1^FS")
-
-    lines.append("^XZ")  # end format
-
-    for copy in range(copies):
-        lines.append("^XA")  # start of label format
-        lines.append("^XFFORMAT^FS")  # label home position
-        lines.append("^FN1^FD" + plate_name + "^FS")  # this is readable
-        lines.append("^XZ")
-    return lines
+        format_lines.append("^FO20,30^AFN 78,39^FN1^FS")  # Larger font for short names
+    data_lines = [
+        f"^FN1^FD{plate_name}^FS"  # Assign plate_name to field 1 (human readable)
+    ]
+    return build_zpl_format(format_lines, data_lines, copies)
 
 
 def makeOperatorAndDateBarcode(operator, date, copies=1):
     """Construct label with operator name and date in human readable format"""
-    lines = []
-    lines.append("^XA")  # start of label
-    # Download and store format, name of format,
-    # end of field data (FS = field stop)
-    lines.append("^DFFORMAT^FS")
-    lines.append("^LH0,0")  # label home position (label home = LH)
-    # AF = assign font F, field number 1 (FN1),
-    # print text at position field origin (FO) rel. to home
-    lines.append("^FO420,35^ADN,36,20^FN1^FS")
-    lines.append("^FO20,35^ADN,36,20^FN2^FS")
-    lines.append("^XZ")  # end format
-
+    format_lines = [
+        "^FO420,35^ADN,36,20^FN1^FS",  # Field for date (right side)
+        "^FO20,35^ADN,36,20^FN2^FS",  # Field for operator (left side)
+    ]
     if len(operator) > 19:
-        operator = operator[:19]  # If string is longer, it would cover the date
-    for copy in range(copies):
-        lines.append("^XA")  # start of label format
-        lines.append("^XFFORMAT^FS")  # label home position
-        lines.append("^FN1^FD" + date + "^FS")  # this is readable
-        lines.append("^FN2^FD" + operator + "^FS")  # this is also readable
-        lines.append("^XZ")
-    return lines
+        operator = operator[:19]  # Truncate operator name if too long
+    data_lines = [
+        f"^FN1^FD{date}^FS",  # Assign date to field 1
+        f"^FN2^FD{operator}^FS",  # Assign operator to field 2
+    ]
+    return build_zpl_format(format_lines, data_lines, copies)
 
 
 def makeProcessNameBarcode(process_name, copies=1):
-    """Constrcut label with process name as human readable"""
-    lines = []
-    lines.append("^XA")  # start of label
-    # download and store format, name of format,
-    # end of field data (FS = field stop)
-    lines.append("^DFFORMAT^FS")
-    lines.append("^LH0,0")  # label home position (label home = LH)
-    # AF = assign font F, field number 1 (FN1),
-    # print text at position field origin (FO) rel. to home
+    """Construct label with process name as human readable"""
+    format_lines = []
+    # Adjust font size and position based on process name length
     if len(process_name) > 21:
-        # Use smaller font, fits 28 chars
-        lines.append("^FO20,40^ADN 54,30^FN1^FS")
+        format_lines.append("^FO20,40^ADN 54,30^FN1^FS")  # Smaller font for long names
     else:
-        # Use larger font, fits 21 chars
-        lines.append("^FO20,30^AFN 78,39^FN1^FS")
-
-    lines.append("^XZ")  # end format
-
-    for copy in range(copies):
-        lines.append("^XA")  # start of label format
-        lines.append("^XFFORMAT^FS")  # label home position
-        lines.append("^FN1^FD" + process_name + "^FS")  # this is readable
-        lines.append("^XZ")
-    return lines
+        format_lines.append("^FO20,30^AFN 78,39^FN1^FS")  # Larger font for short names
+    data_lines = [
+        f"^FN1^FD{process_name}^FS"  # Assign process_name to field 1 (human readable)
+    ]
+    return build_zpl_format(format_lines, data_lines, copies)
 
 
-def getArgs():
-    desc = (
-        " Print barcodes on zebra barcode printer, "
-        " different label types available. Information "
-        " is fetched from Clarity LIMS."
-    )
-    parser = ArgumentParser(description=desc)
-    parser.add_argument(
-        "--container_id",
-        action="store_true",
-        help=(
-            "Print output container id label in both barcode format and human readable."
-        ),
-    )
-    parser.add_argument(
-        "--operator_and_date",
-        action="store_true",
-        help=("Print label with both operator and todays date."),
-    )
-    parser.add_argument(
-        "--container_name",
-        action="store_true",
-        help=("Print label with human readablecontainer name (user defined)"),
-    )
-    parser.add_argument(
-        "--process_name",
-        action="store_true",
-        help=("Print label with human readableprocess name"),
-    )
-    parser.add_argument(
-        "--copies",
-        default=1,
-        type=int,
-        help=(
-            "Number of printout copies, only used"
-            " if neither container_name nor container_id"
-            " type labels are printed. In that case, print"
-            " one label of each type for each container."
-        ),
-    )
-    parser.add_argument("--pid", help="The process LIMS id.")
-    parser.add_argument("--log", help="File name to use as log file")
-    parser.add_argument(
-        "--use_printer",
-        action="store_true",
-        help=("Print file on default or supplied printer using lp command."),
-    )
-    parser.add_argument("--hostname", help="Hostname for lp CUPS server.")
-    parser.add_argument("--destination", help="Name of printer.")
-    parser.add_argument(
-        "--no_prepend",
-        action="store_true",
-        help="Do not prepend old log, useful when ran locally",
-    )
-    return parser.parse_args()
+@epp_decorator(script_path=__file__, timestamp=TIMESTAMP)
+def main(args):
+    lims = Lims(BASEURI, USERNAME, PASSWORD)
+    lims.check_version()
+    process = Process(lims, id=args.pid)
 
+    # Build a list of ZPL (=Zebra Programming Language) lines, corresponding to 4 labels per output container
+    zpl_code = []
+    for container in process.output_containers():
+        logging.info(
+            f"Making label for container ID with barcode: <barcode> {container.id}"
+        )
+        zpl_code += make_container_label(container.id)
 
-def main(args, lims, epp_logger):
-    p = Process(lims, id=args.pid)
-    lines = []
-    cs = []
-    if args.container_id:
-        cs = p.output_containers()
-        for c in cs:
-            logging.info(f"Constructing barcode for container {c.id}.")
-            lines += makeContainerBarcode(c.id, copies=1)
-    if args.container_name:
-        cs = p.output_containers()
-        for c in cs:
-            logging.info(f"Constructing name label for container {c.id}.")
-            lines += makeContainerNameBarcode(c.name, copies=1)
-    if args.operator_and_date:
-        op = p.technician.name
-        date = str(datetime.date.today())
-        if cs:  # list of containers
-            copies = len(cs)
-        else:
-            copies = args.copies
-        lines += makeOperatorAndDateBarcode(op, date, copies=copies)
-    if args.process_name:
-        pn = p.type.name
-        if cs:  # list of containers
-            copies = len(cs)
-        else:
-            copies = args.copies
-        lines += makeProcessNameBarcode(pn, copies=copies)
-    if not (
-        args.container_id
-        or args.container_name
-        or args.operator_and_date
-        or args.process_name
-    ):
-        logging.info("No recognized label type given, exiting.")
-        sys.exit(-1)
-    if not args.use_printer:
-        logging.info("Writing to stdout.")
-        epp_logger.saved_stdout.write("\n".join(lines) + "\n")
-    elif lines:  # Avoid printing empty files
-        lp_args = ["lp"]
-        if args.hostname:
-            # remove that when all the calls to this script have been updated
-            if args.hostname == "homer.scilifelab.se:631":
-                args.hostname = "homer2.scilifelab.se:631"
-            lp_args += ["-h", args.hostname]
-        if args.destination:
-            lp_args += ["-d", args.destination]
-        lp_args.append("-")  # lp accepts stdin if '-' is given as filename
-        logging.info("Ready to call lp for printing.")
-        sp = subprocess.Popen(
+        logging.info(f"Making label for container ID: {container.id}")
+        zpl_code += makeContainerNameBarcode(container.name)
+
+        logging.info(
+            f"Making label for operator and date: {process.technician.name} {str(datetime.date.today())}"
+        )
+        zpl_code += makeOperatorAndDateBarcode(
+            process.technician.name, str(datetime.date.today())
+        )
+
+        logging.info(f"Making label for step name: {process.type.name}")
+        zpl_code += makeProcessNameBarcode(process.type.name)
+
+    # Build args list to label printer command
+    lp_args = ["lp"]
+    lp_args += ["-h", "homer2.scilifelab.se:631"]
+    lp_args += ["-d", "zebrabarcode"]
+    lp_args.append("-")  # make lp command read from stdin
+    logging.info(f"Using command: '{' '.join(lp_args)}'")
+
+    # Call label printer command
+    logging.info("Calling command...")
+    if not args.test:
+        lp_process = subprocess.Popen(
             lp_args,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             encoding="utf8",
         )
-        sp.stdin.write(str("\n".join(lines)))
-        logging.info("lp command is called for printing.")
-        stdout, stderr = sp.communicate()  # Will wait for sp to finish
+        logging.info("Piping ZPL contents...")
+        lp_process.stdin.write(str("\n".join(zpl_code)))
+        stdout, stderr = lp_process.communicate()  # Will wait for subprocess to finish
         logging.info(f"lp stdout: {stdout}")
         logging.info(f"lp stderr: {stderr}")
-        logging.info("lp command finished")
-        sp.stdin.close()
+        logging.info("Command finished, closing subprocess.")
+        lp_process.stdin.close()
+    else:
+        logging.info("Just kidding. This is a test run.")
+
+    # Upload file with ZPL contents, will persist after finishing step, useful for re-prints and doing LIMS from home
+    filename = f"barcodes_{process.id}_{TIMESTAMP}_{process.technician.name.replace(' ', '')}.txt"
+    logging.info(f"Uploading ZPL contents as {filename}")
+
+    with open(filename, "w") as f:
+        f.write(str("\n".join(zpl_code)))
+
+    upload_file(
+        filename, args.file, process, lims, remove=True, fail_on_missing_file_slot=False
+    )
 
 
 if __name__ == "__main__":
-    arguments = getArgs()
-    lims = Lims(BASEURI, USERNAME, PASSWORD)
-    lims.check_version()
-    prepend = not arguments.no_prepend
-    with EppLogger(arguments.log, lims=lims, prepend=prepend) as epp_logger:
-        main(arguments, lims, epp_logger)
+    parser = ArgumentParser()
+    parser.add_argument("--pid", help="The process LIMS id.")
+    parser.add_argument("--file", help="LIMS file slot name to use for barcode file.")
+    parser.add_argument("--log", help="LIMS file slot name to use for log file.")
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        default=False,
+        help="Test run, suppress actual label printing.",
+    )
+    args = parser.parse_args()
+
+    main(args)

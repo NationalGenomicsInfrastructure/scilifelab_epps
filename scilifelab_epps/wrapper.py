@@ -92,7 +92,7 @@ def epp_decorator(script_path: str, timestamp: str):
 
             # Start logging
             if not epp_user:
-                logging.warning("No EPP user found for process ID {args.pid}.")
+                logging.warning(f"No EPP user found for process ID {args.pid}.")
             logging.info(
                 f"Script '{script_name}' started at {timestamp} by {(epp_user.name if epp_user else 'unknown')}."
             )
@@ -104,29 +104,21 @@ def epp_decorator(script_path: str, timestamp: str):
             )
             logging.info(f"Script called with arguments: \n\t{args_str}")
 
-            # Run
+            # Run EPP, check for errors
+            script_exception = None
             try:
                 script_main(args)
-
-            # On script error
             except Exception as e:
                 # Post error to LIMS GUI
-                logging.error(str(e), exc_info=True)
-                logging.shutdown()
-                upload_file(
-                    file_path=log_filename,
-                    file_slot=args.log,
-                    process=process,
-                    lims=lims,
-                )
-                os.remove(log_filename)
-                sys.stderr.write(str(e))
-                sys.exit(2)
+                script_exception = e
+                logger.error(e)
 
-            # On script success
-            else:
-                logging.info("Script finished successfully. Uploading log file.")
-                logging.shutdown()
+            # Check for error / warning messages in log
+            errors_or_warnings_in_log = logger.errors_or_warnings
+            logging.shutdown()
+
+            # Check for log upload success
+            try:
                 upload_file(
                     file_path=log_filename,
                     file_slot=args.log,
@@ -134,15 +126,29 @@ def epp_decorator(script_path: str, timestamp: str):
                     lims=lims,
                     remove=True,
                 )
-                # Check log for errors and warnings
-                if logger.errors_or_warnings:
-                    sys.stderr.write(
-                        "Script finished successfully, but log contains errors or warnings, please have a look."
-                    )
-                    sys.exit(2)
-                else:
-                    sys.stdout.write("Script finished successfully.")
-                    sys.exit(0)
+                log_upload_failed = False
+            except:
+                log_upload_failed = True
+
+            # Build final message
+            final_message_lines = []
+            if script_exception:
+                final_message_lines.append("Script failed.")
+            else:
+                final_message_lines.append("Script finished successfully.")
+            if errors_or_warnings_in_log:
+                final_message_lines.append(
+                    "Errors or warnings occurred, please check log."
+                )
+            if log_upload_failed:
+                final_message_lines.append("Log upload failed.")
+
+            # Post final message and exit
+            sys.stderr.write(" ".join(final_message_lines))
+            if errors_or_warnings_in_log:
+                sys.exit(1)
+            else:
+                sys.exit(0)
 
         return epp_wrapper
 

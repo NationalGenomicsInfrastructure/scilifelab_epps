@@ -1,5 +1,25 @@
 # Scilifelab_epps Version Log
 
+## 20250905.1
+
+Make AVITI run manifest EPP accept noIndex cases.
+
+## 20250821.1
+
+Bugfix VC100 parsing script. File contents are loaded as string straight away.
+
+## 20250820.1
+
+Greatly simplify "Print Barcode" EPP (zebra_barcodes.py), will requires lots of small configuration changes.
+
+## 20250819.1
+
+Add case for MiSeq in BCL Conversion and Demultiplexing
+
+## 20250813.1
+
+For samplesheet generation handle rare cases where we have a pool containing the same sample with different labels, see deviation #361.
+
 ## 20250808.1
 
 Add case for NextSeq in BCL Conversion and Demultiplexing

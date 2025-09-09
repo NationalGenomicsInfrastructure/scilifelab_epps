@@ -626,28 +626,30 @@ def find_barcode(sample_idxs, sample, process):
     for art in process.all_inputs():
         if sample in art.samples:
             if len(art.samples) == 1 and art.reagent_labels:
-                reagent_label_name = art.reagent_labels[0].upper().replace(" ", "")
-                idxs = (
-                    TENX_SINGLE_PAT.findall(reagent_label_name)
-                    or TENX_DUAL_PAT.findall(reagent_label_name)
-                    or SMARTSEQ_PAT.findall(reagent_label_name)
-                )
-                if idxs:
-                    # Put in tuple with empty string as second index to
-                    # match expected type:
-                    sample_idxs.add((idxs[0], ""))
-                else:
-                    try:
-                        idxs = IDX_PAT.findall(reagent_label_name)[0]
-                        sample_idxs.add(idxs)
-                    except IndexError:
+                # In rare cases we have a pool containing the same sample with different labels
+                for reagent_label in art.reagent_labels:
+                    reagent_label_name = reagent_label.upper().replace(" ", "")
+                    idxs = (
+                        TENX_SINGLE_PAT.findall(reagent_label_name)
+                        or TENX_DUAL_PAT.findall(reagent_label_name)
+                        or SMARTSEQ_PAT.findall(reagent_label_name)
+                    )
+                    if idxs:
+                        # Put in tuple with empty string as second index to
+                        # match expected type:
+                        sample_idxs.add((idxs[0], ""))
+                    else:
                         try:
-                            # we only have the reagent label name.
-                            rt = lims.get_reagent_types(name=reagent_label_name)[0]
-                            idxs = IDX_PAT.findall(rt.sequence)[0]
+                            idxs = IDX_PAT.findall(reagent_label_name)[0]
                             sample_idxs.add(idxs)
-                        except:
-                            sample_idxs.add(("NoIndex", ""))
+                        except IndexError:
+                            try:
+                                # we only have the reagent label name.
+                                rt = lims.get_reagent_types(name=reagent_label_name)[0]
+                                idxs = IDX_PAT.findall(rt.sequence)[0]
+                                sample_idxs.add(idxs)
+                            except:
+                                sample_idxs.add(("NoIndex", ""))
             else:
                 if art == sample.artifact or not art.parent_process:
                     pass

@@ -21,19 +21,16 @@ VOL_WARNING_THRESHOLD = 5
 
 
 def get_vc100_file(process, log):
-    output = None
     for outart in process.all_outputs():
         # get the right output artifact
         if outart.type == "ResultFile" and outart.name == "VC100 CSV File":
             try:
                 fid = outart.files[0].id
                 content = lims.get_file_contents(id=fid)
-                if isinstance(content.data, bytes):
-                    output = content.data.decode("utf-8")
             except:
                 log.append("Cannot parse VC100 output file")
             break
-    return output, log
+    return content, log
 
 
 def get_data(content):
