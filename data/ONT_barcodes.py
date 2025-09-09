@@ -614,7 +614,7 @@ def format_well(well: str) -> str:
     return f"{letter}:{num}"
 
 
-# Build a dict to map a LIMS reagent label to it's properties
+# Build a dict to map a LIMS reagent label to its properties
 ont_label2dict: dict[str, dict] = {}
 for lims_kit, labels in lims_kits2labels.items():
     for label in labels:
