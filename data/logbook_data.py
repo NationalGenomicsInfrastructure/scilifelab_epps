@@ -356,40 +356,42 @@ lims_process_record = {
             "dest_file": ["Bravo", "Mosquito"],
             "details": ["Processname"],
         },
+        "udf_Fragment Analyzer": {
+            "dest_file": "FragmentAnalyzer",
+            "details": ["Processname"],
+        },
+        "udf_Qubit Fluorometer": {
+            "dest_file": "Qubit",
+            "details": ["Processname"],
+        },
     },
     "ONT PCR Barcoding": {
         "lims_instrument": {
             "dest_file": "PCR",
         },
+        "udf_Fragment Analyzer": {
+            "dest_file": "FragmentAnalyzer",
+            "details": ["Processname"],
+        },
+        "udf_Qubit Fluorometer": {
+            "dest_file": "Qubit",
+            "details": ["Processname"],
+        },
+    },
+    "ONT Reverse Transcription": {
+        "lims_instrument": {
+            "dest_file": "PCR",
+        },
+        "udf_Fragment Analyzer": {
+            "dest_file": "FragmentAnalyzer",
+            "details": ["Processname"],
+        },
+        "udf_Qubit Fluorometer": {
+            "dest_file": "Qubit",
+            "details": ["Processname"],
+        },
     },
     "ONT Start Sequencing v3.0": {
-        "lims_instrument": {
-            "dest_file": "MinION-PromethION",
-            "details": [
-                "Processname",
-                "LIMS ID (Process)",
-            ],
-        },
-    },
-    "ONT QC Adapter Ligation v1.2": {
-        "lims_instrument": {
-            "dest_file": "Qubit",
-            "details": ["Assay", "Lot no: Qubit kit"],
-        },
-    },
-    "ONT QC Barcoding v1.2": {
-        "lims_instrument": {
-            "dest_file": "Qubit",
-            "details": ["Assay", "Lot no: Qubit kit"],
-        },
-    },
-    "ONT QC End-prep v1.2": {
-        "lims_instrument": {
-            "dest_file": "Qubit",
-            "details": ["Assay", "Lot no: Qubit kit"],
-        },
-    },
-    "ONT QC Start Sequencing": {
         "lims_instrument": {
             "dest_file": "MinION-PromethION",
             "details": [
