@@ -4,6 +4,7 @@ genologics
 google_api_python_client
 httplib2
 interop
+jwcrypto
 Markdown
 numpy
 oauth2client
