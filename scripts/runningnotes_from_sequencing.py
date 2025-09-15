@@ -87,7 +87,6 @@ def main(args):
         if pool_artifact.id in pools:
             pools[pool_artifact.id]["lane"] = well.split(":")[0]
 
-    note_creation_date = datetime.datetime.now()
     epp_initiator = get_epp_user(lims, pro.id)
     project_ordered_lanes = {
         key: sorted(value, key=lambda x: int(pools[x]["lane"]))
@@ -109,18 +108,12 @@ def main(args):
             f"/{epp_initiator.name}"
         )
         note_obj = {
-            "_id": f"{project}:{datetime.datetime.timestamp(note_creation_date)}",
             "categories": ["Lab"],
             "note_type": "project",
-            "parent": project,
-            "created_at_utc": note_creation_date.isoformat(),
-            "updated_at_utc": note_creation_date.isoformat(),
-            "projects": [project],
-            "user": epp_initiator.name,
             "email": epp_initiator.email,
             "note": note,
         }
-        write_note_to_couch(project, note_creation_date, note_obj, BASEURI)
+        write_note_to_couch(project, note_obj, BASEURI)
 
 
 if __name__ == "__main__":

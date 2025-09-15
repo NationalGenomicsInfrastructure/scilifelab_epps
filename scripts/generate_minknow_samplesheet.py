@@ -299,6 +299,7 @@ def main(args):
         args.file,
         process,
         lims,
+        remove=False,
     )
 
     logging.info("Moving samplesheet to ngi-nas-ns...")
