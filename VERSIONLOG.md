@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20250915.1
+
+Remove ONT EPPs to be replaced by UDF formulas, add ONT demux stats EPP, tweak UDF formulas EPP to be less upset about missing values.
+
 ## 20250905.1
 
 Make AVITI run manifest EPP accept noIndex cases.
