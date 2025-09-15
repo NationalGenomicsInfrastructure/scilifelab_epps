@@ -184,7 +184,7 @@ def get_val_from_placeholder(
     art_in: Artifact | None = None,
     art_out: Artifact | None = None,
     step: Process | None = None,
-) -> str | float | int:
+) -> str | float | int | None:
     """Fetch a value from a UDF placeholder."""
     recursive = True if placeholder[0] == "_" else False
 
