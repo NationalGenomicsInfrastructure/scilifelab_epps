@@ -341,7 +341,7 @@ def eval_rh(
     try:
         lh_val = eval(rh_eval_string)
     except Exception as e:
-        logging.warning(
+        logging.info(
             f'Could not evaluate: "{rh_eval_string}". Exception: {e}. Skipping.'
         )
         raise SkipCalculation()
