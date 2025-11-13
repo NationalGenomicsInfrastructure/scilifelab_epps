@@ -558,7 +558,7 @@ def upload_file(
     file_slot: str,
     process: Process,
     lims: Lims,
-    remove: bool = True,
+    remove: bool = False,
     fail_on_missing_file_slot: bool = True,
 ):
     matching_file_slots = [
