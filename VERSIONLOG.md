@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20251113.1
+
+Set default to false for file removal in file upload, pass parameter as false in aviti samplesheet generation just to be on the safe side
+
 ## 20251105.1
 
 Fix bugs in ONT couchdb connections
