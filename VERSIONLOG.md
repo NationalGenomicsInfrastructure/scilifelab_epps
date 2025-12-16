@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20251216.1
+
+Add  "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
+
 ## 20250911.1
 
 Fix MinKNOW samplesheet bug where file is deleted before it can be moved to ngi-nas-ns.
