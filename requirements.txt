@@ -1,9 +1,9 @@
-CouchDB
 flowcell_parser @ git+https://github.com/SciLifeLab/flowcell_parser
 genologics
 google_api_python_client
 httplib2
 interop
+ibmcloudant
 jwcrypto
 Markdown
 numpy

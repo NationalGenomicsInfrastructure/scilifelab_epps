@@ -4,6 +4,42 @@
 
 Add  "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
 
+## 20251113.1
+
+Set default to false for file removal in file upload, pass parameter as false in aviti samplesheet generation just to be on the safe side
+
+## 20251105.1
+
+Fix bugs in ONT couchdb connections
+
+## 20251104.1
+
+Update EPP for generating ONT samplesheets so that periods in the kitname are replaced by dashes.
+
+## 20251023.2
+
+Update ONT EPPs to use cloudant instead of couchdb
+
+## 20251023.1
+
+Update EPP for that manages and imports demux stats to LIMS by correcting the path to the metadata on Preproc.
+
+## 20251021.1
+
+Update EPP for parsing Run information to LIMS by correcting the path to the metadata on Preproc.
+
+## 20251013.1
+
+Update EPP for uploading AVITI manifest to manifest processable by TACA.
+
+## 20251007.1
+
+Add EPP to upload AVITI manifests to ngi-nas-ns that have been manually uploaded to LIMS.
+
+## 20250919.1
+
+Remove unused scripts and associated modules.
+
 ## 20250911.1
 
 Fix MinKNOW samplesheet bug where file is deleted before it can be moved to ngi-nas-ns.

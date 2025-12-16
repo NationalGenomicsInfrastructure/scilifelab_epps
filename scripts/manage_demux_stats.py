@@ -131,7 +131,7 @@ def get_process_stats(demux_process):
             problem_handler(
                 "exit", f"No flowcell version set in sequencing step: {str(e)}"
             )
-        proc_stats["Instrument"] = "AVITI"
+        proc_stats["Instrument"] = "Aviti"
         proc_stats["Read Length"] = (
             max(seq_process.udf["Read 1 Cycles"], seq_process.udf["Read 2 Cycles"])
             if seq_process.udf.get("Read 2 Cycles")

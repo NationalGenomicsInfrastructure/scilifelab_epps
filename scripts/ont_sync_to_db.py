@@ -6,7 +6,6 @@ import re
 from argparse import ArgumentParser, Namespace
 from datetime import datetime as dt
 
-from couchdb.client import Database, Document, Row, ViewResults
 from generate_minknow_samplesheet import (
     generate_MinKNOW_samplesheet,
     get_ont_library_contents,
@@ -15,6 +14,7 @@ from generate_minknow_samplesheet import (
 from genologics.config import BASEURI, PASSWORD, USERNAME
 from genologics.entities import Artifact, Process
 from genologics.lims import Lims
+from ibmcloudant import cloudant_v1
 from ont_send_reloading_info_to_db import get_ONT_db
 
 from scilifelab_epps.utils import udf_tools
@@ -89,15 +89,17 @@ def udfs_matches_run_name(art: Artifact) -> bool:
 def get_matching_db_rows(
     art: Artifact,
     process: Process,
-    view: ViewResults,
+    view: tuple[str, str, str],
     run_name: str | None,
-) -> list[Row]:
+    client: cloudant_v1.CloudantV1,
+) -> list[dict]:
     """Find the rows in the database view that match the given artifact."""
     matching_rows = []
 
     qc = True if "QC" in process.type.name else False
     logging.info(f"QC run: {qc}")
 
+    db_name, ddoc, view_name = view
     # If run name is not supplied, try to find it in the database, assuming it follows the samplesheet naming convention
     if run_name is None:
         # Define query pattern
@@ -117,8 +119,15 @@ def get_matching_db_rows(
             f"No run name supplied. Quering the database for run with path pattern '{pattern}'."
         )
 
-        for row in view.rows:
-            query = row.value["TACA_run_path"]
+        rows: list[dict] = client.post_view(
+            db=db_name,
+            ddoc=ddoc,
+            view=view_name,
+            include_docs=False,
+        ).get_result()["rows"]
+
+        for row in rows:
+            query = row["value"]["TACA_run_path"]
             if re.match(pattern, query):
                 matching_rows.append(row)
 
@@ -127,17 +136,31 @@ def get_matching_db_rows(
         logging.info(
             f"Full run name supplied. Quering the database for run '{run_name}'."
         )
-        for row in view.rows:
-            if run_name == row.key:
-                matching_rows.append(row)
+        rows = client.post_view(
+            db=db_name,
+            ddoc=ddoc,
+            view=view_name,
+            include_docs=False,
+            key=run_name,
+        ).get_result()["rows"]
+
+        if rows:
+            matching_rows.append(rows[0])
 
     return matching_rows
 
 
 def write_to_doc(
-    doc: Document, db: Database, process: Process, art: Artifact, args: Namespace
+    doc: dict,
+    db: str,
+    process: Process,
+    art: Artifact,
+    args: Namespace,
+    client: cloudant_v1.CloudantV1,
 ):
-    """Update a given document with the given artifact's loading information."""
+    """
+    Update a given document with the given artifact's loading information.
+    """
 
     library_df = get_ont_library_contents(
         ont_library=art,
@@ -164,7 +187,7 @@ def write_to_doc(
         doc["lims"]["loading"] = []
     doc["lims"]["loading"].append(dict_to_add)
 
-    db[doc.id] = doc
+    client.put_document(db=db, doc_id=doc["_id"], document=doc).get_result()
 
 
 def sync_runs_to_db(process: Process, args: Namespace, lims: Lims):
@@ -186,8 +209,9 @@ def sync_runs_to_db(process: Process, args: Namespace, lims: Lims):
     # Keep track of which artifacts were successfully updated
     arts_successful = []
 
-    nanopore_runs_db: Database = get_ONT_db()
-    view: ViewResults = nanopore_runs_db.view("info/all_stats")
+    client, nanopore_runs_db = get_ONT_db()
+
+    db_view: tuple = (nanopore_runs_db, "info", "all_stats")
 
     for art in arts:
         logging.info(f"Processing '{art.name}'...")
@@ -200,23 +224,25 @@ def sync_runs_to_db(process: Process, args: Namespace, lims: Lims):
                 continue
 
         # Get matching run docs
-        matching_rows: list[Row] = get_matching_db_rows(art, process, view, run_name)
+        matching_rows: list[dict] = get_matching_db_rows(
+            art, process, db_view, run_name, client
+        )
 
         if len(matching_rows) == 0:
             logging.warning("Run was not found in the database. Skipping.")
             continue
 
         elif len(matching_rows) > 1:
-            matching_run_names = [row.key for row in matching_rows]
+            matching_run_names = [row["key"] for row in matching_rows]
             logging.warning("Query was found in multiple instances in the database: ")
             for matching_run_name in matching_run_names:
                 logging.warning(f"Matching run name: '{matching_run_name}'.")
             logging.warning("Contact a database administrator. Skipping.")
             continue
 
-        doc_run_name: str = matching_rows[0].key
-        doc_id: str = matching_rows[0].id
-        doc: Document = nanopore_runs_db[doc_id]
+        doc_run_name: str = matching_rows[0]["key"]
+        doc_id: str = matching_rows[0]["id"]
+        doc: dict = client.get_document(db=nanopore_runs_db, doc_id=doc_id).get_result()
 
         logging.info(f"Found matching run '{doc_run_name}' in the database.")
 
@@ -229,7 +255,7 @@ def sync_runs_to_db(process: Process, args: Namespace, lims: Lims):
         logging.info(f"Assigning UDF 'ONT run name': '{doc_run_name}'.")
         udf_tools.put(art, "ONT run name", doc_run_name)
 
-        write_to_doc(doc, nanopore_runs_db, process, art, args)
+        write_to_doc(doc, nanopore_runs_db, process, art, args, client)
         logging.info(f"'{doc_run_name}' was found and updated successfully.")
         arts_successful.append(art)
 

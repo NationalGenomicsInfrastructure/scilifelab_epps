@@ -18,7 +18,7 @@ class Thresholds:
             "NovaSeq",
             "NextSeq",
             "NovaSeqXPlus",
-            "AVITI",
+            "Aviti",
         ]
         self.valid_chemistry = [
             "MiSeq",
@@ -111,7 +111,7 @@ class Thresholds:
                 self.Q30 = 85
 
         # Preliminary values for AVITI
-        elif self.instrument == "AVITI":
+        elif self.instrument == "Aviti":
             if self.read_length >= 250:
                 self.Q30 = 85
             else:
@@ -167,7 +167,7 @@ class Thresholds:
             elif self.chemistry == "NextSeq 2000 P3":
                 self.exp_lane_clust = 550e6
         # Preliminary values for AVITI
-        elif self.instrument == "AVITI":
+        elif self.instrument == "Aviti":
             if self.chemistry == "AVITI High":
                 if self.read_length >= 250:
                     self.exp_lane_clust = 300e6

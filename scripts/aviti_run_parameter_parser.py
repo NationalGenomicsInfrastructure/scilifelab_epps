@@ -29,7 +29,7 @@ def fetch_fc(process):
 def fetch_rundir(fc_id):
     run_dir = ""
     metadata_dir = "ngi-nas-ns"
-    data_dir = "AVITI_data"
+    data_dir = "Aviti_data"
     run_dir_path = os.path.join(os.sep, "srv", metadata_dir, data_dir, f"*{fc_id}")
     if len(glob.glob(run_dir_path)) == 1:
         run_dir = glob.glob(run_dir_path)[0]
