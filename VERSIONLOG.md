@@ -2,7 +2,7 @@
 
 ## 20251216.1
 
-Add  "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
+Add "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
 
 ## 20251113.1
 
