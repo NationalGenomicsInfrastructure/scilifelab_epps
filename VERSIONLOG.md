@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20251216.1
+
+Add "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
+
 ## 20251113.1
 
 Set default to false for file removal in file upload, pass parameter as false in aviti samplesheet generation just to be on the safe side
