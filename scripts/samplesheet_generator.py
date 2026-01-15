@@ -710,7 +710,9 @@ def main(lims, args):
                 "run_setup": run_setup,
                 "setup_lims_step_id": process.id,
             }
-            upload_to_genstat(obj, metadata, fc_name)
+            #Check that content exists to upload obj
+            if content:
+                upload_to_genstat(obj, metadata, fc_name)
             for f in ss_art.files:
                 lims.request_session.delete(f.uri)
             lims.upload_new_file(ss_art, f"{fc_name}.csv")

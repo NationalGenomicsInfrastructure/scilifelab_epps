@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260115.1
+
+Update sample_generator to upload samplesheets to a genomics-status api
+
 ## 20251216.1
 
 Add "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
