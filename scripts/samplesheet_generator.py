@@ -710,7 +710,7 @@ def main(lims, args):
                 "run_setup": run_setup,
                 "setup_lims_step_id": process.id,
             }
-            #Check that content exists to upload obj
+            # Check that content exists to upload obj
             if content:
                 upload_to_genstat(obj, metadata, fc_name)
             for f in ss_art.files:
