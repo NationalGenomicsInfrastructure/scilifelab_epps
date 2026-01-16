@@ -671,7 +671,7 @@ def main(lims, args):
                 if out.name == "Scilifelab SampleSheet":
                     ss_art = out
                 elif out.name == "Scilifelab Log":
-                    log_id = out.id
+                    log_art = out
                 elif out.type == "Analyte":
                     if process.type.name == "Load to Flowcell (NextSeq v1.0)":
                         fc_name = (
@@ -717,8 +717,10 @@ def main(lims, args):
                 lims.request_session.delete(f.uri)
             lims.upload_new_file(ss_art, f"{fc_name}.csv")
             if log:
-                with open(f"{log_id}_{fc_name}_Error.log", "w") as f:
+                with open(f"{log_art.id}_{fc_name}_Error.log", "w") as f:
                     f.write("\n".join(log))
+                # Upload log to file slot
+                lims.upload_new_file(log_art, f"{log_art.id}_{fc_name}_Error.log")
 
                 sys.stderr.write("Errors were met, check the log.")
                 sys.exit(2)
