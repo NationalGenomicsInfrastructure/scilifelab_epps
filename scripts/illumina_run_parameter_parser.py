@@ -13,7 +13,7 @@ from genologics.entities import Process
 from genologics.lims import Lims
 from interop import py_interop_run, py_interop_run_metrics, py_interop_summary
 
-DESC = """EPP for parsing run paramters for Illumina MiSeq, NextSeq and NovaSeq runs
+DESC = """EPP for parsing run paramters for Illumina MiSeq, MiSeq i100, NextSeq and NovaSeq runs
 Author: Chuan Wang, Science for Life Laboratory, Stockholm, Sweden
 """
 
@@ -46,6 +46,15 @@ def fetch_fc(process):
         fc_id = process.parent_processes()[0].output_containers()[0].name
     elif "Load to Flowcell (NovaSeqXPlus)" in process.parent_processes()[0].type.name:
         fc_id = process.parent_processes()[0].output_containers()[0].name
+    elif process.parent_processes()[0].type.name == "Load to Flowcell (MiSeq i100) v1.0":
+        # The i100 uses 'Flowcell Series Number' like the NextSeq
+        if process.parent_processes()[0].udf.get("Flowcell Series Number"):
+            fc_id = process.parent_processes()[0].udf["Flowcell Series Number"].upper()
+        else:
+            sys.stderr.write(
+                "Flowcell Series Number is empty in the associated Load to Flowcell (MiSeq i100) v1.0 step."
+            )
+            sys.exit(2)
     else:
         sys.stderr.write("No associated parent step can be found.")
         sys.exit(2)
@@ -58,6 +67,8 @@ def fetch_rundir(fc_id, run_type):
         data_dir = "NextSeq_data"
     elif run_type == "miseq":
         data_dir = "miseq_data"
+    elif run_type == "miseqi100":
+        data_dir = "MiSeqi100_data"
     elif run_type == "novaseq":
         data_dir = "NovaSeq_data"
     elif run_type == "NovaSeqXPlus":
@@ -310,6 +321,49 @@ def lims_for_nextseq(process, run_dir):
     # Put in LIMS
     process.put()
     # Set run stats parsed from InterOp
+    run_stats_summary = parse_illumina_interop(run_dir)
+    set_run_stats_in_lims(process, run_stats_summary)
+
+def lims_for_miseqi100(process, run_dir):
+    # Parse run
+    runParserObj, RunParametersParserObj = parse_run(run_dir)
+    # Attach RunInfo.xml and RunParameters.xml
+    attach_xml(process, run_dir)
+    runParameters = RunParametersParserObj.data["RunParameters"]
+    process.udf["Finish Date"] = (
+        datetime.strptime(runParameters["RunEndTime"][:10], "%Y-%m-%d").date()
+        if "RunEndTime" in list(runParameters.keys())
+        and runParameters["RunEndTime"] != ""
+        else datetime.now().date()
+    )
+    # MiSeq i100 specific: 'i100' and adjusting the string formatting
+    fc_mode = runParameters.get("FlowCellMode", "i100")
+    process.udf["Run Type"] = f"MiSeq i100 {fc_mode}"
+    process.udf["Chemistry"] = f"MiSeq i100 {fc_mode}"
+
+    # Cycle Logic (Same as NextSeq/NovaSeq X)
+    planned = sum(map(int, runParameters["PlannedCycles"].values()))
+    completed = sum(map(int, runParameters["CompletedCycles"].values()))
+    process.udf["Status"] = f"Cycle {completed} of {planned}"
+
+    # IDs - Note: i100 might use 'FlowCellSerialNumber' or 'FlowCellLotNumber'
+    process.udf["Flow Cell ID"] = runParameters.get("FlowCellSerialNumber")
+    process.udf["Experiment Name"] = runParameters.get("FlowCellSerialNumber")
+    
+    # Read Cycles
+    process.udf["Read 1 Cycles"] = int(runParameters["PlannedCycles"]["Read1"])
+    process.udf["Index 1 Read Cycles"] = int(runParameters["PlannedCycles"]["Index1"])
+    process.udf["Index 2 Read Cycles"] = int(runParameters["PlannedCycles"]["Index2"])
+    process.udf["Read 2 Cycles"] = int(runParameters["PlannedCycles"]["Read2"])
+    
+    process.udf["Run ID"] = runParserObj.runinfo.data["Id"]
+    
+    # The i100 uses an all-in-one reagent cartridge
+    process.udf["Reagent Cartridge ID"] = runParameters.get("CartridgeSerialNumber")
+
+    process.put()
+
+    # InterOp parsing is generally the same across all modern Illumina platforms
     run_stats_summary = parse_illumina_interop(run_dir)
     set_run_stats_in_lims(process, run_stats_summary)
 
@@ -586,6 +640,8 @@ def main(lims, args):
         run_type = "novaseq"
     elif "NovaSeqXPlus Run" in process.type.name:
         run_type = "NovaSeqXPlus"
+    elif process.type.name == "Illumina Sequencing (MiSeq i100) v1.0":
+        run_type = "miseqi100"
 
     # Fetch FC ID
     fc_id = fetch_fc(process)
@@ -602,6 +658,8 @@ def main(lims, args):
         lims_for_novaseq(process, run_dir)
     elif run_type == "NovaSeqXPlus":
         lims_for_NovaSeqXPlus(process, run_dir)
+    elif run_type == "miseqi100":
+        lims_for_miseqi100(process, run_dir)
 
 
 if __name__ == "__main__":
