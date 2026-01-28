@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260128.1
+
+fix: ensure reads is a list to prevent TypeError on Read 1 Only runs
+
 ## 20251216.1
 
 Add "Pre-Pooling (Library Pool Processing) v1.0" and "Pre-Pooling (AVITI) v1.0" to enable zika usage for those steps.
