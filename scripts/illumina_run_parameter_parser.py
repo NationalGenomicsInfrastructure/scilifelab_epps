@@ -560,12 +560,14 @@ def lims_for_NovaSeqXPlus(process, run_dir):
     # Subset parsed data
     runParameters = RunParametersParserObj.data["RunParameters"]
     consumables = runParameters["ConsumableInfo"]["ConsumableInfo"]
-    reads = runParameters["PlannedReads"]["Read"]
+    raw_reads = runParameters["PlannedReads"]["Read"]
     # If runParameters["Reads"] is a single dict (common in single-read runs), 
     # this converts it to a list so the loop doesn't iterate over the keys.
-    if isinstance(reads, dict):
-        reads = [reads]
-        
+    if isinstance(raw_reads, dict):
+        reads = [raw_reads]
+    else:
+        reads = raw_reads
+
     # Set values for LIMS UDFs
     process.udf["Run ID"] = runParameters["RunId"]
     process.udf["Output Folder"] = runParameters["OutputFolder"]
