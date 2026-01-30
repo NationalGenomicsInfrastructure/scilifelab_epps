@@ -342,7 +342,7 @@ def lims_for_miseqi100(process, run_dir):
     process.udf["Chemistry"] = f"MiSeq i100 {fc_mode}"
 
     # Cycle Logic (Same as NextSeq/NovaSeq X)
-    planned = sum(map(int, runParameters["PlannedCycles"].values()))
+    planned = sum(map(int, runParameters["PlannedReads"].values()))
     completed = sum(map(int, runParameters["CompletedCycles"].values()))
     process.udf["Status"] = f"Cycle {completed} of {planned}"
 
@@ -351,10 +351,10 @@ def lims_for_miseqi100(process, run_dir):
     process.udf["Experiment Name"] = runParameters.get("FlowCellSerialNumber")
     
     # Read Cycles
-    process.udf["Read 1 Cycles"] = int(runParameters["PlannedCycles"]["Read1"])
-    process.udf["Index 1 Read Cycles"] = int(runParameters["PlannedCycles"]["Index1"])
-    process.udf["Index 2 Read Cycles"] = int(runParameters["PlannedCycles"]["Index2"])
-    process.udf["Read 2 Cycles"] = int(runParameters["PlannedCycles"]["Read2"])
+    process.udf["Read 1 Cycles"] = int(runParameters["PlannedReads"]["Read1"])
+    process.udf["Index 1 Read Cycles"] = int(runParameters["PlannedReads"]["Index1"])
+    process.udf["Index 2 Read Cycles"] = int(runParameters["PlannedReads"]["Index2"])
+    process.udf["Read 2 Cycles"] = int(runParameters["PlannedReads"]["Read2"])
     
     process.udf["Run ID"] = runParserObj.runinfo.data["Id"]
     
