@@ -124,20 +124,20 @@ def get_process_stats(demux_process):
         proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
 
     elif "Illumina Sequencing (MiSeq i100) v1.0" in seq_process.type.name:
-    try:
-        proc_stats["Chemistry"] = seq_process.udf["Chemistry"]
-    except Exception as e:
-        problem_handler("exit", f"No chemistry set in sequencing step: {str(e)}")
+        try:
+            proc_stats["Chemistry"] = seq_process.udf["Chemistry"]
+        except Exception as e:
+            problem_handler("exit", f"No chemistry set in sequencing step: {str(e)}")
 
-    proc_stats["Instrument"] = "MiSeqi100"
+        proc_stats["Instrument"] = "MiSeqi100"
 
-    proc_stats["Read Length"] = (
-        max(seq_process.udf["Read 1 Cycles"], seq_process.udf["Read 2 Cycles"])
-        if seq_process.udf.get("Read 2 Cycles")
-        else seq_process.udf["Read 1 Cycles"]
-    )
+        proc_stats["Read Length"] = (
+            max(seq_process.udf["Read 1 Cycles"], seq_process.udf["Read 2 Cycles"])
+            if seq_process.udf.get("Read 2 Cycles")
+            else seq_process.udf["Read 1 Cycles"]
+        )
 
-    proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
+        proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
 
     elif "AVITI Run" in seq_process.type.name:
         try:
