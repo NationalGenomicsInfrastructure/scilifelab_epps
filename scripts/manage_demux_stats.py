@@ -54,6 +54,7 @@ def get_process_stats(demux_process):
         "Illumina Sequencing (NextSeq) v1.0",
         "NovaSeqXPlus Run v1.0",
         "AVITI Run v1.0",
+        "Illumina Sequencing (MiSeq i100) v1.0",
     }
     try:
         # Query LIMS for all steps containing the first input artifact of this step and match to the set of sequencing steps
@@ -121,6 +122,22 @@ def get_process_stats(demux_process):
             else seq_process.udf["Read 1 Cycles"]
         )
         proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
+
+    elif "Illumina Sequencing (MiSeq i100) v1.0" in seq_process.type.name:
+    try:
+        proc_stats["Chemistry"] = seq_process.udf["Chemistry"]
+    except Exception as e:
+        problem_handler("exit", f"No chemistry set in sequencing step: {str(e)}")
+
+    proc_stats["Instrument"] = "MiSeqi100"
+
+    proc_stats["Read Length"] = (
+        max(seq_process.udf["Read 1 Cycles"], seq_process.udf["Read 2 Cycles"])
+        if seq_process.udf.get("Read 2 Cycles")
+        else seq_process.udf["Read 1 Cycles"]
+    )
+
+    proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
 
     elif "AVITI Run" in seq_process.type.name:
         try:
@@ -267,6 +284,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
             "Illumina Sequencing (NextSeq) v1.0",
             "NovaSeqXPlus Run v1.0",
             "AVITI Run v1.0",
+            "Illumina Sequencing (MiSeq i100) v1.0",
         }
         seq_process = lims.get_processes(
             inputartifactlimsid=demux_process.all_inputs()[0].id, type=seq_processes
@@ -292,7 +310,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
         f"All input pools must be in the same flowcell, found: {container_names}"
     )
     run_id = process_stats["Run ID"]
-    if process_stats["Instrument"] in ["NextSeq", "miseq"]:
+    if process_stats["Instrument"] in ["NextSeq", "miseq", "MiSeqi100"]:
         run_id = process_stats["Reagent Cartridge ID"]
     assert container_names[0] in run_id, (
         f"Flowcell name {container_names[0]} seems unrelated to run {run_id}"
@@ -515,6 +533,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
                                 "Illumina Sequencing (NextSeq) v1.0",
                                 "NovaSeqXPlus Run v1.0",
                                 "AVITI Run v1.0",
+                                "Illumina Sequencing (MiSeq i100) v1.0",
                             ]:
                                 try:
                                     for inp in seq_process.all_outputs():
