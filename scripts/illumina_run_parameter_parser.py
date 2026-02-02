@@ -341,9 +341,22 @@ def lims_for_miseqi100(process, run_dir):
     process.udf["Run Type"] = f"MiSeq i100 {fc_mode}"
     process.udf["Chemistry"] = f"MiSeq i100 {fc_mode}"
 
-    # Cycle Logic (Same as NextSeq/NovaSeq X)
+    # Cycle Logic (MiSeq i100: CompletedCycles may be missing)
     planned = sum(map(int, runParameters["PlannedReads"].values()))
-    completed = sum(map(int, runParameters["CompletedCycles"].values()))
+
+    completed_cycles = runParameters.get("CompletedCycles")
+
+    if completed_cycles:
+    # Use RunParameters.xml if present
+        completed = sum(map(int, completed_cycles.values()))
+    else:
+    # Fallback: use InterOp cycle count
+    # parse_illumina_interop() is already called later, so call it early here
+        interop_stats = parse_illumina_interop(run_dir)
+
+    # You may need to adjust the key depending on your parser's output
+    completed = interop_stats.get("total_cycles_completed", 0)
+
     process.udf["Status"] = f"Cycle {completed} of {planned}"
 
     # IDs - Note: i100 might use 'FlowCellSerialNumber' or 'FlowCellLotNumber'
