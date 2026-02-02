@@ -285,6 +285,48 @@ def set_run_stats_in_lims_miseq(process, run_stats_summary):
     art.put()
     process.put()
 
+def set_run_stats_in_lims_i100(process, run_stats_summary):
+    lane_nbr = 1  # MiSeq i100 always has one lane
+
+    for art in process.all_outputs():
+        read = 1
+
+        # If no stats for lane 1, skip
+        if lane_nbr not in run_stats_summary:
+            continue
+
+        for read_idx in run_stats_summary[lane_nbr]:
+            lane_stats = run_stats_summary[lane_nbr][read_idx]
+
+            # Only write metrics that exist (i100 has fewer)
+            for key, value in lane_stats.items():
+                if value is None or (isinstance(value, float) and math.isnan(value)):
+                    continue
+
+                if key == "reads_pf":
+                    art.udf[f"Reads PF (M) R{read}"] = value / 1_000_000
+                else:
+                    # Convert key names to UDF labels
+                    label_map = {
+                        "density": "Cluster Density (K/mm^2)",
+                        "error_rate": "% Error Rate",
+                        "first_cycle_intensity": "Intensity Cycle 1",
+                        "percent_aligned": "% Aligned",
+                        "percent_gt_q30": "% Bases >=Q30",
+                        "percent_pf": "%PF",
+                        "phasing": "% Phasing",
+                        "prephasing": "% Prephasing",
+                        "yield_g": "Yield PF (Gb)",
+                    }
+                    if key in label_map:
+                        art.udf[f"{label_map[key]} R{read}"] = value
+
+            read += 1
+
+        art.put()
+
+    process.put()
+
 
 def lims_for_nextseq(process, run_dir):
     # Parse run
@@ -396,7 +438,7 @@ def lims_for_miseqi100(process, run_dir):
 
     # InterOp stats (same pattern as NextSeq)
     run_stats_summary = parse_illumina_interop(run_dir)
-    set_run_stats_in_lims_miseq(process, run_stats_summary)
+    set_run_stats_in_lims_i100(process, run_stats_summary)
 
 def lims_for_miseq(process, run_dir):
     # Parse run
