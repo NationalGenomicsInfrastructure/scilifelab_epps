@@ -125,7 +125,7 @@ def get_process_stats(demux_process):
 
     elif "Illumina Sequencing (MiSeq i100) v1.0" in seq_process.type.name:
         try:
-            proc_stats["Chemistry"] = seq_process.udf["Chemistry"]
+            proc_stats["Chemistry"] = seq_process.udf["Run Type"]
         except Exception as e:
             problem_handler("exit", f"No chemistry set in sequencing step: {str(e)}")
 
