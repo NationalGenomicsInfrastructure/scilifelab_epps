@@ -396,7 +396,7 @@ def lims_for_miseqi100(process, run_dir):
 
     # InterOp stats (same pattern as NextSeq)
     run_stats_summary = parse_illumina_interop(run_dir)
-    set_run_stats_in_lims(process, run_stats_summary)
+    set_run_stats_in_lims_miseq(process, run_stats_summary)
 
 def lims_for_miseq(process, run_dir):
     # Parse run
