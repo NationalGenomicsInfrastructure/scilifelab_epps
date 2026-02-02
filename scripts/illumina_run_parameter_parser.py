@@ -303,8 +303,6 @@ def set_run_stats_in_lims_i100(process, run_stats_summary):
                 if value is None or (isinstance(value, float) and math.isnan(value)):
                     continue
 
-                if key == "reads_pf":
-                    art.udf[f"Clusters PF R{read}"] = value / 1_000_000
                 else:
                     # Convert key names to UDF labels
                     label_map = {
@@ -317,6 +315,7 @@ def set_run_stats_in_lims_i100(process, run_stats_summary):
                         "phasing": "% Phasing",
                         "prephasing": "% Prephasing",
                         "yield_g": "Yield PF (Gb)",
+                        "reads_pf": "Clusters PF",
                     }
                     if key in label_map:
                         art.udf[f"{label_map[key]} R{read}"] = value
