@@ -317,6 +317,7 @@ def set_run_stats_in_lims_i100(process, run_stats_summary):
                         "phasing": "% Phasing",
                         "prephasing": "% Prephasing",
                         "yield_g": "Yield PF (Gb)",
+                        "reads_pf": "Clusters PF",
                     }
                     if key in label_map:
                         art.udf[f"{label_map[key]} R{read}"] = value
