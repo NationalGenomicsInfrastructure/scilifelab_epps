@@ -329,57 +329,74 @@ def lims_for_miseqi100(process, run_dir):
     runParserObj, RunParametersParserObj = parse_run(run_dir)
     # Attach RunInfo.xml and RunParameters.xml
     attach_xml(process, run_dir)
+
     runParameters = RunParametersParserObj.data["RunParameters"]
-    process.udf["Finish Date"] = (
-        datetime.strptime(runParameters["RunEndTime"][:10], "%Y-%m-%d").date()
-        if "RunEndTime" in list(runParameters.keys())
-        and runParameters["RunEndTime"] != ""
-        else datetime.now().date()
-    )
-    # MiSeq i100 specific: 'i100' and adjusting the string formatting
-    fc_mode = runParameters.get("FlowCellMode", "i100")
-    process.udf["Run Type"] = f"MiSeq i100 {fc_mode}"
-    process.udf["Chemistry"] = f"MiSeq i100 {fc_mode}"
 
-    # Cycle Logic (MiSeq i100: CompletedCycles may be missing)
-    planned = sum(map(int, runParameters["PlannedReads"].values()))
+    # --- Finish date (no RunEndTime in i100 RunParameters) ---
+    process.udf["Finish Date"] = datetime.now().date()
 
-    completed_cycles = runParameters.get("CompletedCycles")
+    # --- Run type / chemistry ---
+    instrument_type = runParameters.get("InstrumentType", "MiSeq i100")
+    process.udf["Run Type"] = instrument_type
+    process.udf["Chemistry"] = runParameters.get("RecipeName", instrument_type)
 
-    if completed_cycles:
-    # Use RunParameters.xml if present
-        completed = sum(map(int, completed_cycles.values()))
-    else:
-    # Fallback: use InterOp cycle count
-    # parse_illumina_interop() is already called later, so call it early here
-        interop_stats = parse_illumina_interop(run_dir)
+    # --- Planned reads (PlannedReads/Read with ReadName + Cycles) ---
+    planned_reads = {"Read1": 0, "Read2": 0, "Index1": 0, "Index2": 0}
 
-    # You may need to adjust the key depending on your parser's output
-    completed = interop_stats.get("total_cycles_completed", 0)
+    reads = runParameters["PlannedReads"]["Read"]
+    # Single-read case vs list
+    if isinstance(reads, dict):
+        reads = [reads]
 
-    process.udf["Status"] = f"Cycle {completed} of {planned}"
+    for r in reads:
+        name = r.get("ReadName")
+        cycles = int(r.get("Cycles", 0))
+        if name in planned_reads:
+            planned_reads[name] = cycles
 
-    # IDs - Note: i100 might use 'FlowCellSerialNumber' or 'FlowCellLotNumber'
-    process.udf["Flow Cell ID"] = runParameters.get("FlowCellSerialNumber")
-    process.udf["Experiment Name"] = runParameters.get("FlowCellSerialNumber")
-    
-    # Read Cycles
-    process.udf["Read 1 Cycles"] = int(runParameters["PlannedReads"]["Read1"])
-    process.udf["Index 1 Read Cycles"] = int(runParameters["PlannedReads"]["Index1"])
-    process.udf["Index 2 Read Cycles"] = int(runParameters["PlannedReads"]["Index2"])
-    process.udf["Read 2 Cycles"] = int(runParameters["PlannedReads"]["Read2"])
-    
-    process.udf["Run ID"] = runParserObj.runinfo.data["Id"]
-    
-    # The i100 uses an all-in-one reagent cartridge
-    process.udf["Reagent Cartridge ID"] = runParameters.get("CartridgeSerialNumber")
+    total_cycles = sum(planned_reads.values())
+    process.udf["Status"] = f"Cycle {total_cycles} of {total_cycles}"
 
+    process.udf["Read 1 Cycles"] = planned_reads["Read1"]
+    process.udf["Index 1 Read Cycles"] = planned_reads["Index1"]
+    process.udf["Index 2 Read Cycles"] = planned_reads["Index2"]
+    process.udf["Read 2 Cycles"] = planned_reads["Read2"]
+
+    # --- Flow cell + reagent cartridge from ConsumableInfo ---
+    flowcell_id = None
+    reagent_cart_id = None
+
+    consumables = runParameters.get("ConsumableInfo", {}).get("ConsumableInfo", [])
+    if isinstance(consumables, dict):
+        consumables = [consumables]
+
+    for c in consumables:
+        ctype = c.get("Type")
+        serial = c.get("SerialNumber")
+        if ctype and "DryCartridge" in ctype:
+            flowcell_id = serial
+        elif ctype and "WetCartridge" in ctype:
+            reagent_cart_id = serial
+
+    process.udf["Flow Cell ID"] = flowcell_id
+    process.udf["Reagent Cartridge ID"] = reagent_cart_id
+
+    # --- Other metadata ---
+    process.udf["Experiment Name"] = runParameters.get("ExperimentName")
+    process.udf["Run ID"] = runParameters.get("RunId")
+
+    output_folder = runParameters.get("OutputFolder")
+    if output_folder and runParameters.get("RunId"):
+        process.udf["Output Folder"] = output_folder.replace(runParameters["RunId"], "")
+    elif output_folder:
+        process.udf["Output Folder"] = output_folder
+
+    # Put in LIMS
     process.put()
 
-    # InterOp parsing is generally the same across all modern Illumina platforms
+    # InterOp stats (same pattern as NextSeq)
     run_stats_summary = parse_illumina_interop(run_dir)
     set_run_stats_in_lims(process, run_stats_summary)
-
 
 def lims_for_miseq(process, run_dir):
     # Parse run
