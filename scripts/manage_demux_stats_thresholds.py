@@ -18,7 +18,7 @@ class Thresholds:
             "NovaSeq",
             "NextSeq",
             "NovaSeqXPlus",
-            "Aviti"
+            "Aviti",
             "MiSeqi100",
         ]
         self.valid_chemistry = [
@@ -42,10 +42,10 @@ class Thresholds:
             "AVITI High",
             "AVITI Med",
             "AVITI Low",
-            "5M"
-            "25M"
-            "50M"
-            "100M"
+            "5M",
+            "25M",
+            "50M",
+            "100M",
         ]
 
         if (
