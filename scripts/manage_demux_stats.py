@@ -123,7 +123,7 @@ def get_process_stats(demux_process):
         )
         proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
 
-    elif "Illumina Sequencing (MiSeq i100) v1.0" in seq_process.type.name.lower():
+    elif "Illumina Sequencing (MiSeq i100) v1.0" == seq_process.type.name:
         raw_chem = seq_process.udf["Chemistry"]
 
         # Extract 5M, 25M, 50M, 100M if present
