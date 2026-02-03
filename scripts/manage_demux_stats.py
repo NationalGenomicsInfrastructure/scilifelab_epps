@@ -124,8 +124,8 @@ def get_process_stats(demux_process):
         proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
 
     elif "Illumina Sequencing (MiSeq i100) v1.0" in seq_process.type.name:
-        proc_stats["Instrument"] = "MiSeqi100"
-        proc_stats["Chemistry"] = "MiSeqi100"
+        proc_stats["Instrument"] = "MiSeq i100"
+        proc_stats["Chemistry"] = "MiSeq i100"
 
         proc_stats["Read Length"] = (
             max(seq_process.udf["Read 1 Cycles"], seq_process.udf["Read 2 Cycles"])
@@ -306,7 +306,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
         f"All input pools must be in the same flowcell, found: {container_names}"
     )
     run_id = process_stats["Run ID"]
-    if process_stats["Instrument"] in ["NextSeq", "miseq", "MiSeqi100"]:
+    if process_stats["Instrument"] in ["NextSeq", "miseq", "MiSeq i100"]:
         run_id = process_stats["Reagent Cartridge ID"]
     assert container_names[0] in run_id, (
         f"Flowcell name {container_names[0]} seems unrelated to run {run_id}"
