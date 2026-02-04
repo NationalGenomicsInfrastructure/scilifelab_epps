@@ -782,73 +782,91 @@ def dilution(currentStep):
         logging.info("Work done")
 
 
-def normalization(current_step):
+def normalization(currentStep, lims):
     log = []
-    with open("bravo.csv", "w") as csv:
-        for art in current_step.input_output_maps:
-            src = art[0]["uri"]
-            dest = art[1]["uri"]
-            if src.type == dest.type == "Analyte":
-                # Source sample:
-                src_plate = src.location[0].id
-                src_well = src.location[1]
-                try:
-                    src_tot_volume = float(src.udf["Volume (ul)"])
-                except:
-                    src_tot_volume = 999999
-                    log.append(
-                        f"WARNING: No volume found for input sample {src.samples[0].name}"
-                    )
-                try:
-                    src_volume = float(dest.udf["Volume to take (uL)"])
-                except:
-                    sys.stderr.write(
-                        f"Field 'Volume to take (uL)' is empty for artifact {dest.name}\n"
-                    )
-                    sys.exit(2)
-                if "Concentration" in src.udf:
-                    src_conc = src.udf["Concentration"]
-                    if src.udf["Conc. Units"] != "nM":
+    # ZIKA-SPECIFIC NORMALIZATION
+    if currentStep.instrument.name == "Zika":
+        # Zika normalization uses the same API as pre-pooling
+        zika.methods.pool(
+            currentStep=currentStep,
+            lims=lims,
+            udfs={
+                "target_amt": None,
+                "target_vol": "Final Volume (uL)",
+                "target_conc": "Normalized conc. (nM)",
+                "final_amt": None,
+                "final_vol": "Final Volume (uL)",
+                "final_conc": "Normalized conc. (nM)",
+            },
+        )
+        logging.info("Zika normalization CSV file generated.")
+        return
+    else:
+        with open("bravo.csv", "w") as csv:
+            for art in currentStep.input_output_maps:
+                src = art[0]["uri"]
+                dest = art[1]["uri"]
+                if src.type == dest.type == "Analyte":
+                    # Source sample:
+                    src_plate = src.location[0].id
+                    src_well = src.location[1]
+                    try:
+                        src_tot_volume = float(src.udf["Volume (ul)"])
+                    except:
+                        src_tot_volume = 999999
                         log.append(
-                            f"ERROR: No valid concentration found for sample {src.samples[0].name}"
+                            f"WARNING: No volume found for input sample {src.samples[0].name}"
                         )
-                elif "Normalized conc. (nM)" in src.udf:
-                    src_conc = src.udf["Normalized conc. (nM)"]
-                else:
-                    sys.stderr.write(
-                        f"Non input concentration found for sample {dest.name}\n"
-                    )
-                    sys.exit(2)
+                    try:
+                        src_volume = float(dest.udf["Volume to take (uL)"])
+                    except:
+                        sys.stderr.write(
+                            f"Field 'Volume to take (uL)' is empty for artifact {dest.name}\n"
+                        )
+                        sys.exit(2)
+                    if "Concentration" in src.udf:
+                        src_conc = src.udf["Concentration"]
+                        if src.udf["Conc. Units"] != "nM":
+                            log.append(
+                                f"ERROR: No valid concentration found for sample {src.samples[0].name}"
+                            )
+                    elif "Normalized conc. (nM)" in src.udf:
+                        src_conc = src.udf["Normalized conc. (nM)"]
+                    else:
+                        sys.stderr.write(
+                            f"Non input concentration found for sample {dest.name}\n"
+                        )
+                        sys.exit(2)
 
-                # Diluted sample:
-                dest_plate = dest.location[0].id
-                dest_well = dest.location[1]
-                try:
-                    dest_conc = dest.udf["Normalized conc. (nM)"]
-                except:
-                    sys.stderr.write(
-                        f"Field 'Normalized conc. (nM)' is empty for artifact {dest.name}\n"
-                    )
-                    sys.exit(2)
-                if src_conc < dest_conc:
-                    log.append(
-                        f"ERROR: Too low concentration for sample {src.samples[0].name}"
-                    )
-                else:
-                    # Warn if volume to take > volume available or max volume is
-                    # exceeded but still do the calculation:
-                    if src_volume > src_tot_volume:
-                        log.append(
-                            f"WARNING: Not enough available volume of sample {src.samples[0].name}"
+                    # Diluted sample:
+                    dest_plate = dest.location[0].id
+                    dest_well = dest.location[1]
+                    try:
+                        dest_conc = dest.udf["Normalized conc. (nM)"]
+                    except:
+                        sys.stderr.write(
+                            f"Field 'Normalized conc. (nM)' is empty for artifact {dest.name}\n"
                         )
-                    final_volume = src_conc * src_volume / dest_conc
-                    if final_volume > MAX_WARNING_VOLUME:
+                        sys.exit(2)
+                    if src_conc < dest_conc:
                         log.append(
-                            f"WARNING: Maximum volume exceeded for sample {src.samples[0].name}"
+                            f"ERROR: Too low concentration for sample {src.samples[0].name}"
                         )
-                    csv.write(
-                        f"{src_plate},{src_well},{src_volume},{dest_plate},{dest_well},{final_volume}\n"
-                    )
+                    else:
+                        # Warn if volume to take > volume available or max volume is
+                        # exceeded but still do the calculation:
+                        if src_volume > src_tot_volume:
+                            log.append(
+                                f"WARNING: Not enough available volume of sample {src.samples[0].name}"
+                            )
+                        final_volume = src_conc * src_volume / dest_conc
+                        if final_volume > MAX_WARNING_VOLUME:
+                            log.append(
+                                f"WARNING: Maximum volume exceeded for sample {src.samples[0].name}"
+                            )
+                        csv.write(
+                            f"{src_plate},{src_well},{src_volume},{dest_plate},{dest_well},{final_volume}\n"
+                        )
     if log:
         with open("bravo.log", "w") as log_context:
             log_context.write("\n".join(log))
@@ -859,7 +877,7 @@ def normalization(current_step):
     df = df.sort_values(["dest_col", "dest_row"]).drop(["dest_row", "dest_col"], axis=1)
     df.to_csv("bravo.csv", header=False, index=False)
 
-    for out in current_step.all_outputs():
+    for out in currentStep.all_outputs():
         # attach the csv file and the log file
         if out.name == "EPP Generated Bravo CSV File for Normalization":
             attach_file(os.path.join(os.getcwd(), "bravo.csv"), out)
@@ -1025,8 +1043,9 @@ def main(lims, args):
         "Pre-Pooling",
         "Pre-Pooling (NovaSeqXPlus) v1.0",
         "Illumina DNA No-QC Library Pooling",
-        "Pre-Pooling (Library Pool Processing) v1.0",
         "Pre-Pooling (AVITI) v1.0",
+        "Pre-Pooling (Library Pool Processing) v1.0",
+        "ONT Pooling v2.0",
     ]:
         prepooling(currentStep, lims)
     elif currentStep.type.name in [
@@ -1035,6 +1054,7 @@ def main(lims, args):
         "Library Normalization (NextSeq) v1.0",
         "Library Normalization,",
         "Library Normalization (NovaSeqXPlus) v1.0",
+        "Library Normalization (Library Pool Processing) v1.0",
     ]:
         normalization(currentStep)
     elif currentStep.type.name == "Library Pooling (RAD-seq) 1.0":
