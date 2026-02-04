@@ -1056,7 +1056,7 @@ def main(lims, args):
         "Library Normalization (NovaSeqXPlus) v1.0",
         "Library Normalization (Library Pool Processing) v1.0",
     ]:
-        normalization(currentStep)
+        normalization(currentStep,lims)
     elif currentStep.type.name == "Library Pooling (RAD-seq) 1.0":
         default_bravo(lims, currentStep, False)
     elif currentStep.type.name == "Diluting Samples":
