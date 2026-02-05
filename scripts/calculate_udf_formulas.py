@@ -476,7 +476,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--log",
         required=True,
-        nargs="+",        # <-- allows multiple values
         type=str,
         help="Which log file slot to use",
     )
