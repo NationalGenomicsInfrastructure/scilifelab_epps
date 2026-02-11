@@ -2,7 +2,7 @@
 
 ## 20260211.1
 
-Enable the integration of MiSeq i100 into LIMS. 
+Enable the integration of MiSeq i100 into LIMS
 
 ## 20260128.1
 
