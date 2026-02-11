@@ -46,7 +46,9 @@ def fetch_fc(process):
         fc_id = process.parent_processes()[0].output_containers()[0].name
     elif "Load to Flowcell (NovaSeqXPlus)" in process.parent_processes()[0].type.name:
         fc_id = process.parent_processes()[0].output_containers()[0].name
-    elif process.parent_processes()[0].type.name == "Load to Flowcell (MiSeq i100) v1.0":
+    elif (
+        process.parent_processes()[0].type.name == "Load to Flowcell (MiSeq i100) v1.0"
+    ):
         # The i100 uses 'Flowcell Series Number' like the NextSeq
         if process.parent_processes()[0].udf.get("Flowcell Series Number"):
             fc_id = process.parent_processes()[0].udf["Flowcell Series Number"].upper()
@@ -285,6 +287,7 @@ def set_run_stats_in_lims_miseq(process, run_stats_summary):
     art.put()
     process.put()
 
+
 def set_run_stats_in_lims_i100(process, run_stats_summary):
     lane_nbr = 1  # MiSeq i100 always has one lane
 
@@ -365,6 +368,7 @@ def lims_for_nextseq(process, run_dir):
     run_stats_summary = parse_illumina_interop(run_dir)
     set_run_stats_in_lims(process, run_stats_summary)
 
+
 def lims_for_miseqi100(process, run_dir):
     # Parse run
     runParserObj, RunParametersParserObj = parse_run(run_dir)
@@ -438,6 +442,7 @@ def lims_for_miseqi100(process, run_dir):
     # InterOp stats (same pattern as NextSeq)
     run_stats_summary = parse_illumina_interop(run_dir)
     set_run_stats_in_lims_i100(process, run_stats_summary)
+
 
 def lims_for_miseq(process, run_dir):
     # Parse run
@@ -632,7 +637,7 @@ def lims_for_NovaSeqXPlus(process, run_dir):
     runParameters = RunParametersParserObj.data["RunParameters"]
     consumables = runParameters["ConsumableInfo"]["ConsumableInfo"]
     raw_reads = runParameters["PlannedReads"]["Read"]
-    # If runParameters["Reads"] is a single dict (common in single-read runs), 
+    # If runParameters["Reads"] is a single dict (common in single-read runs),
     # this converts it to a list so the loop doesn't iterate over the keys.
     if isinstance(raw_reads, dict):
         reads = [raw_reads]
