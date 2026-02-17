@@ -93,13 +93,13 @@ class Thresholds:
         # Preliminary values for MiSeqi100
         elif self.instrument == "MiSeqi100":
             if self.read_length >= 250:
-                self.Q30 = 85
+                self.Q30 = 75
             elif self.read_length >= 150:
-                self.Q30 = 90
+                self.Q30 = 75
             elif self.read_length >= 100:
-                self.Q30 = 90
+                self.Q30 = 80
             elif self.read_length < 100:
-                self.Q30 = 90
+                self.Q30 = 80
 
         elif self.instrument == "NovaSeq":
             if self.read_length >= 150:
@@ -123,7 +123,7 @@ class Thresholds:
             elif self.read_length >= 100:
                 self.Q30 = 80
             elif self.read_length < 100:
-                self.Q30 = 85
+                self.Q30 = 80
 
         # Preliminary values for AVITI
         elif self.instrument == "Aviti":
@@ -165,7 +165,7 @@ class Thresholds:
                 self.exp_lane_clust = 2000e6
         elif self.instrument == "NovaSeqXPlus":
             if self.chemistry == "10B":
-                self.exp_lane_clust = 1000e6
+                self.exp_lane_clust = 1200e6
             elif self.chemistry == "1.5B":
                 self.exp_lane_clust = 750e6
             elif self.chemistry == "25B":
@@ -177,7 +177,7 @@ class Thresholds:
             elif self.chemistry == "25M":
                 self.exp_lane_clust = 25e6
             elif self.chemistry == "50M":
-                self.exp_lane_clust = 70e6
+                self.exp_lane_clust = 50e6
             elif self.chemistry == "100M":
                 self.exp_lane_clust = 100e6
         elif self.instrument == "NextSeq":
