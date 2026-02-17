@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260211.1
+
+Enable the integration of MiSeq i100 into LIMS
+
 ## 20260128.1
 
 fix: ensure reads is a list to prevent TypeError on Read 1 Only runs

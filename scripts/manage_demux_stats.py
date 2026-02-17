@@ -54,6 +54,7 @@ def get_process_stats(demux_process):
         "Illumina Sequencing (NextSeq) v1.0",
         "NovaSeqXPlus Run v1.0",
         "AVITI Run v1.0",
+        "Illumina Sequencing (MiSeq i100) v1.0",
     }
     try:
         # Query LIMS for all steps containing the first input artifact of this step and match to the set of sequencing steps
@@ -120,6 +121,24 @@ def get_process_stats(demux_process):
             if seq_process.udf.get("Read 2 Cycles")
             else seq_process.udf["Read 1 Cycles"]
         )
+        proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
+
+    elif "Illumina Sequencing (MiSeq i100) v1.0" == seq_process.type.name:
+        raw_chem = seq_process.udf["Chemistry"]
+
+        # Extract 5M, 25M, 50M, 100M if present
+        match = re.search(r"(5M|25M|50M|100M)", raw_chem)
+        if match:
+            proc_stats["Chemistry"] = match.group(1)
+        else:
+            proc_stats["Chemistry"] = raw_chem  # fallback
+        proc_stats["Instrument"] = "MiSeqi100"
+        proc_stats["Read Length"] = (
+            max(seq_process.udf["Read 1 Cycles"], seq_process.udf["Read 2 Cycles"])
+            if seq_process.udf.get("Read 2 Cycles")
+            else seq_process.udf["Read 1 Cycles"]
+        )
+
         proc_stats["Paired"] = True if seq_process.udf.get("Read 2 Cycles") else False
 
     elif "AVITI Run" in seq_process.type.name:
@@ -267,6 +286,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
             "Illumina Sequencing (NextSeq) v1.0",
             "NovaSeqXPlus Run v1.0",
             "AVITI Run v1.0",
+            "Illumina Sequencing (MiSeq i100) v1.0",
         }
         seq_process = lims.get_processes(
             inputartifactlimsid=demux_process.all_inputs()[0].id, type=seq_processes
@@ -314,8 +334,9 @@ def set_sample_values(demux_process, parser_struct, process_stats):
                     outarts_per_lane.append(art_tuple[1]["uri"])
         except Exception as e:
             problem_handler("exit", f"Unable to fetch artifacts of process: {str(e)}")
-        if process_stats["Instrument"] == "miseq":
+        if process_stats["Instrument"] in ("miseq", "MiSeqi100"):
             lane_no = "1"
+
         else:
             try:
                 lane_no = pool.location[1][0]
@@ -515,6 +536,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
                                 "Illumina Sequencing (NextSeq) v1.0",
                                 "NovaSeqXPlus Run v1.0",
                                 "AVITI Run v1.0",
+                                "Illumina Sequencing (MiSeq i100) v1.0",
                             ]:
                                 try:
                                     for inp in seq_process.all_outputs():
