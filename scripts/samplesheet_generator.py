@@ -723,10 +723,22 @@ def main(lims, args):
             os.chmod(f"{fc_name}.csv", 0o664)
             # Upload samplesheet to CouchDB through Genstat
             run_setup = f"{process.udf.get('Read 1 Cycles')}_{process.udf.get('Index Read 1', 'x')}_{process.udf.get('Index Read 2', 'x')}_{process.udf.get('Read 2 Cycles')}"
+
+            # Determine instrument type from process name
+            instrument_type_mapping = {
+                "Load to Flowcell (NovaSeqXPlus)": "NovaSeqXPlus",
+                "Denature, Dilute and Load Sample (MiSeq) 4.0": "MiSeq",
+                "Load to Flowcell (NextSeq v1.0)": "NextSeq",
+                "Load to Flowcell (MiSeq i100) v1.0": "MiSeq i100",
+            }
+            instrument_type = instrument_type_mapping.get(process.type.name, "")
+
             metadata = {
                 "num_lanes": num_lanes,
                 "run_setup": run_setup,
                 "setup_lims_step_id": process.id,
+                "instrument_type": instrument_type,
+                "run_mode": process.udf.get("Run Mode", ""),
             }
             # Check that content exists to upload obj
             if content:
