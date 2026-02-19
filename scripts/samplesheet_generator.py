@@ -7,13 +7,17 @@ import sys
 from argparse import ArgumentParser
 from datetime import datetime
 from io import StringIO
+from typing import Any
 
 import pandas as pd
+import requests
+import yaml
 from genologics.config import BASEURI, PASSWORD, USERNAME
 from genologics.entities import Process
 from genologics.lims import Lims
 
 from data.Chromium_10X_indexes import Chromium_10X_indexes
+from scilifelab_epps.utils.genstat_conn import create_jwt_token, email_responsible
 
 # Load SS3 indexes
 SMARTSEQ3_indexes_json = (
@@ -39,7 +43,7 @@ def check_index_distance(data, log):
     lanes = {x["lane"] for x in data}
     for l in lanes:
         indexes = [
-            x.get("idx1", "") + x.get("idx2", "") for x in data if x["lane"] == l
+            x.get("index_1", "") + x.get("index_2", "") for x in data if x["lane"] == l
         ]
         if not indexes or len(indexes) == 1:
             return None
@@ -76,113 +80,9 @@ def my_distance(idx1, idx2):
     return diffs
 
 
-def gen_Novaseq_lane_data(pro):
-    data = []
-    header_ar = [
-        "FCID",
-        "Lane",
-        "Sample_ID",
-        "Sample_Name",
-        "Sample_Ref",
-        "index",
-        "index2",
-        "Description",
-        "Control",
-        "Recipe",
-        "Operator",
-        "Sample_Project",
-    ]
-    for out in pro.all_outputs():
-        if out.type == "Analyte":
-            for sample in out.samples:
-                sample_idxs = set()
-                find_barcode(sample_idxs, sample, pro)
-                for idxs in sample_idxs:
-                    sp_obj = {}
-                    sp_obj["lane"] = out.location[1].split(":")[0].replace(",", "")
-                    if NGISAMPLE_PAT.findall(sample.name):
-                        sp_obj["sid"] = f"Sample_{sample.name}".replace(",", "")
-                        sp_obj["sn"] = sample.name.replace(",", "")
-                        sp_obj["pj"] = sample.project.name.replace(".", "__").replace(
-                            ",", ""
-                        )
-                        sp_obj["ref"] = sample.project.udf.get(
-                            "Reference genome", ""
-                        ).replace(",", "")
-                        seq_setup = sample.project.udf.get("Sequencing setup", "")
-                        if SEQSETUP_PAT.findall(seq_setup):
-                            sp_obj["rc"] = "{}-{}".format(
-                                seq_setup.split("-")[0], seq_setup.split("-")[3]
-                            )
-                        else:
-                            sp_obj["rc"] = "0-0"
-                    else:
-                        sp_obj["sid"] = (
-                            f"Sample_{sample.name}".replace("(", "")
-                            .replace(")", "")
-                            .replace(".", "")
-                            .replace(" ", "_")
-                        )
-                        sp_obj["sn"] = (
-                            sample.name.replace("(", "")
-                            .replace(")", "")
-                            .replace(".", "")
-                            .replace(" ", "_")
-                        )
-                        sp_obj["pj"] = "Control"
-                        sp_obj["ref"] = "Control"
-                        sp_obj["rc"] = "0-0"
-                    sp_obj["ct"] = "N"
-                    sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
-                        ",", ""
-                    )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
-                    sp_obj["sw"] = out.location[1].replace(",", "")
-                    sp_obj["idx1"] = idxs[0].replace(",", "").upper()
-                    if idxs[1]:
-                        if pro.udf["Reagent Version"] == "v1.5":
-                            sp_obj["idx2"] = idxs[1].replace(",", "").upper()
-                        elif pro.udf["Reagent Version"] == "v1.0":
-                            sp_obj["idx2"] = "".join(
-                                reversed(
-                                    [
-                                        compl.get(b, b)
-                                        for b in idxs[1].replace(",", "").upper()
-                                    ]
-                                )
-                            )
-                    else:
-                        sp_obj["idx2"] = ""
-                    data.append(sp_obj)
-    header = "{}\n".format(",".join(header_ar))
-    str_data = ""
-    for line in sorted(data, key=lambda x: x["lane"]):
-        l_data = [
-            line["fc"],
-            line["lane"],
-            line["sn"],
-            line["sn"],
-            line["ref"],
-            line["idx1"],
-            line["idx2"],
-            line["pj"],
-            line["ct"],
-            line["rc"],
-            line["op"],
-            line["pj"],
-        ]
-        str_data = str_data + ",".join(l_data) + "\n"
-
-    content = f"{header}{str_data}"
-    df = pd.read_csv(StringIO(content))
-    df = df.sort_values(["Lane", "Sample_ID"])
-    content = df.to_csv(index=False)
-
-    return (content, data)
-
-
 def gen_NovaSeqXPlus_lane_data(pro):
     data = []
+    lanes = set()
     header_ar = [
         "FCID",
         "Lane",
@@ -205,13 +105,14 @@ def gen_NovaSeqXPlus_lane_data(pro):
                 for idxs in sample_idxs:
                     sp_obj = {}
                     sp_obj["lane"] = out.location[1].split(":")[0].replace(",", "")
+                    lanes.add(sp_obj["lane"])
                     if NGISAMPLE_PAT.findall(sample.name):
-                        sp_obj["sid"] = f"Sample_{sample.name}".replace(",", "")
-                        sp_obj["sn"] = sample.name.replace(",", "")
-                        sp_obj["pj"] = sample.project.name.replace(".", "__").replace(
-                            ",", ""
-                        )
-                        sp_obj["ref"] = sample.project.udf.get(
+                        sp_obj["sample_id"] = f"Sample_{sample.name}".replace(",", "")
+                        sp_obj["sample_name"] = sample.name.replace(",", "")
+                        sp_obj["description"] = sample.project.name.replace(
+                            ".", "__"
+                        ).replace(",", "")
+                        sp_obj["sample_ref"] = sample.project.udf.get(
                             "Reference genome", ""
                         ).replace(",", "")
                         seq_setup = sample.project.udf.get("Sequencing setup", "")
@@ -219,52 +120,57 @@ def gen_NovaSeqXPlus_lane_data(pro):
                             sp_obj["rc"] = "{}-{}".format(
                                 seq_setup.split("-")[0], seq_setup.split("-")[3]
                             )
+                            sp_obj["recipe"] = seq_setup
                         else:
                             sp_obj["rc"] = "0-0"
+                            sp_obj["recipe"] = "0-0-0-0"
                     else:
-                        sp_obj["sid"] = (
+                        sp_obj["sample_id"] = (
                             f"Sample_{sample.name}".replace("(", "")
                             .replace(")", "")
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["sn"] = (
+                        sp_obj["sample_name"] = (
                             sample.name.replace("(", "")
                             .replace(")", "")
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["pj"] = "Control"
-                        sp_obj["ref"] = "Control"
+                        sp_obj["description"] = "Control"
+                        sp_obj["sample_ref"] = "Control"
                         sp_obj["rc"] = "0-0"
-                    sp_obj["ct"] = "N"
-                    sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
+                        sp_obj["recipe"] = "0-0-0-0"
+                    sp_obj["control"] = "N"
+                    sp_obj["operator"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
+                    sp_obj["flowcell_id"] = (
+                        out.location[0].name.replace(",", "").upper()
+                    )
                     sp_obj["sw"] = out.location[1].replace(",", "")
-                    sp_obj["idx1"] = idxs[0].replace(",", "").upper()
+                    sp_obj["index_1"] = idxs[0].replace(",", "").upper()
                     if idxs[1]:
-                        sp_obj["idx2"] = idxs[1].replace(",", "").upper()
+                        sp_obj["index_2"] = idxs[1].replace(",", "").upper()
                     else:
-                        sp_obj["idx2"] = ""
+                        sp_obj["index_2"] = ""
                     data.append(sp_obj)
     header = "{}\n".format(",".join(header_ar))
     str_data = ""
     for line in sorted(data, key=lambda x: x["lane"]):
         l_data = [
-            line["fc"],
+            line["flowcell_id"],
             line["lane"],
-            line["sn"],
-            line["sn"],
-            line["ref"],
-            line["idx1"],
-            line["idx2"],
-            line["pj"],
-            line["ct"],
+            line["sample_id"],
+            line["sample_name"],
+            line["sample_ref"],
+            line["index_1"],
+            line["index_2"],
+            line["description"],
+            line["control"],
             line["rc"],
-            line["op"],
-            line["pj"],
+            line["operator"],
+            line["description"],
         ]
         str_data = str_data + ",".join(l_data) + "\n"
 
@@ -273,7 +179,7 @@ def gen_NovaSeqXPlus_lane_data(pro):
     df = df.sort_values(["Lane", "Sample_ID"])
     content = df.to_csv(index=False)
 
-    return (content, data)
+    return (content, data, len(lanes))
 
 
 def gen_Miseq_header(pro, chem):
@@ -329,6 +235,7 @@ def is_key_empty_in_all_dicts(key, list_of_dicts):
 def gen_Miseq_data(pro):
     chem = "amplicon"
     data = []
+    lanes = set()
     header_ar = [
         "FCID",
         "Lane",
@@ -344,18 +251,18 @@ def gen_Miseq_data(pro):
         "Sample_Project",
     ]
     key_order = [
-        "fc",
+        "flowcell_id",
         "lane",
-        "sn",
-        "sn",
+        "sample_name",
+        "sample_name",
         "ref",
-        "idx1",
-        "idx2",
-        "pj",
-        "ct",
+        "index_1",
+        "index_2",
+        "description",
+        "control",
         "rc",
-        "op",
-        "pj",
+        "operator",
+        "description",
     ]
     for out in pro.all_outputs():
         if out.type == "Analyte":
@@ -365,13 +272,14 @@ def gen_Miseq_data(pro):
                 for idxs in sample_idxs:
                     sp_obj = {}
                     sp_obj["lane"] = "1"
+                    lanes.add(sp_obj["lane"])
                     if NGISAMPLE_PAT.findall(sample.name):
-                        sp_obj["sid"] = f"Sample_{sample.name}".replace(",", "")
-                        sp_obj["sn"] = sample.name.replace(",", "")
-                        sp_obj["pj"] = sample.project.name.replace(".", "__").replace(
-                            ",", ""
-                        )
-                        sp_obj["ref"] = sample.project.udf.get(
+                        sp_obj["sample_id"] = f"Sample_{sample.name}".replace(",", "")
+                        sp_obj["sample_name"] = sample.name.replace(",", "")
+                        sp_obj["description"] = sample.project.name.replace(
+                            ".", "__"
+                        ).replace(",", "")
+                        sp_obj["sample_ref"] = sample.project.udf.get(
                             "Reference genome", ""
                         ).replace(",", "")
                         seq_setup = sample.project.udf.get("Sequencing setup", "")
@@ -385,8 +293,10 @@ def gen_Miseq_data(pro):
                             sp_obj["rc"] = "{}-{}".format(
                                 seq_setup.split("-")[0], seq_setup.split("-")[3]
                             )
+                            sp_obj["recipe"] = seq_setup
                         else:
                             sp_obj["rc"] = "0-0"
+                            sp_obj["recipe"] = "0-0-0-0"
                     else:
                         sp_obj["sid"] = (
                             f"Sample_{sample.name}".replace("(", "")
@@ -394,21 +304,24 @@ def gen_Miseq_data(pro):
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["sn"] = (
+                        sp_obj["sample_name"] = (
                             sample.name.replace("(", "")
                             .replace(")", "")
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["pj"] = "Control"
-                        sp_obj["ref"] = "Control"
+                        sp_obj["description"] = "Control"
+                        sp_obj["sample_ref"] = "Control"
                         sp_obj["rc"] = "0-0"
+                        sp_obj["recipe"] = "0-0-0-0"
                         pj_type = "Control"
-                    sp_obj["ct"] = "N"
-                    sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
+                    sp_obj["control"] = "N"
+                    sp_obj["operator"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
+                    sp_obj["flowcell_id"] = (
+                        out.location[0].name.replace(",", "").upper()
+                    )
                     sp_obj["sw"] = out.location[1].replace(",", "")
 
                     # Expand 10X single indexes
@@ -418,24 +331,24 @@ def gen_Miseq_data(pro):
                         ]:
                             sp_obj_sub = {}
                             sp_obj_sub["lane"] = sp_obj["lane"]
-                            sp_obj_sub["sid"] = sp_obj["sid"]
-                            sp_obj_sub["sn"] = sp_obj["sn"]
-                            sp_obj_sub["pj"] = sp_obj["pj"]
-                            sp_obj_sub["ref"] = sp_obj["ref"]
+                            sp_obj_sub["sample_id"] = sp_obj["sample_id"]
+                            sp_obj_sub["sample_name"] = sp_obj["sample_name"]
+                            sp_obj_sub["description"] = sp_obj["description"]
+                            sp_obj_sub["sample_ref"] = sp_obj["sample_ref"]
                             sp_obj_sub["rc"] = sp_obj["rc"]
-                            sp_obj_sub["ct"] = sp_obj["ct"]
-                            sp_obj_sub["op"] = sp_obj["op"]
-                            sp_obj_sub["fc"] = sp_obj["fc"]
+                            sp_obj_sub["control"] = sp_obj["control"]
+                            sp_obj_sub["operator"] = sp_obj["operator"]
+                            sp_obj_sub["flowcell_id"] = sp_obj["flowcell_id"]
                             sp_obj_sub["sw"] = sp_obj["sw"]
-                            sp_obj_sub["idx1"] = tenXidx.replace(",", "")
-                            sp_obj_sub["idx2"] = ""
+                            sp_obj_sub["index_1"] = tenXidx.replace(",", "")
+                            sp_obj_sub["index_2"] = ""
                             data.append(sp_obj_sub)
                     # Case of 10X dual indexes
                     elif TENX_DUAL_PAT.findall(idxs[0]):
-                        sp_obj["idx1"] = Chromium_10X_indexes[
+                        sp_obj["index_1"] = Chromium_10X_indexes[
                             TENX_DUAL_PAT.findall(idxs[0])[0]
                         ][0].replace(",", "")
-                        sp_obj["idx2"] = "".join(
+                        sp_obj["index_2"] = "".join(
                             reversed(
                                 [
                                     compl.get(b, b)
@@ -454,17 +367,17 @@ def gen_Miseq_data(pro):
                             for i5_idx in SMARTSEQ3_indexes[idxs[0]][1]:
                                 sp_obj_sub = {}
                                 sp_obj_sub["lane"] = sp_obj["lane"]
-                                sp_obj_sub["sid"] = sp_obj["sid"]
-                                sp_obj_sub["sn"] = sp_obj["sn"]
-                                sp_obj_sub["pj"] = sp_obj["pj"]
-                                sp_obj_sub["ref"] = sp_obj["ref"]
+                                sp_obj_sub["sample_id"] = sp_obj["sample_id"]
+                                sp_obj_sub["sample_name"] = sp_obj["sample_name"]
+                                sp_obj_sub["description"] = sp_obj["description"]
+                                sp_obj_sub["sample_ref"] = sp_obj["sample_ref"]
                                 sp_obj_sub["rc"] = sp_obj["rc"]
-                                sp_obj_sub["ct"] = sp_obj["ct"]
-                                sp_obj_sub["op"] = sp_obj["op"]
-                                sp_obj_sub["fc"] = sp_obj["fc"]
+                                sp_obj_sub["control"] = sp_obj["control"]
+                                sp_obj_sub["operator"] = sp_obj["operator"]
+                                sp_obj_sub["flowcell_id"] = sp_obj["flowcell_id"]
                                 sp_obj_sub["sw"] = sp_obj["sw"]
-                                sp_obj_sub["idx1"] = i7_idx
-                                sp_obj_sub["idx2"] = "".join(
+                                sp_obj_sub["index_1"] = i7_idx
+                                sp_obj_sub["index_2"] = "".join(
                                     reversed(
                                         [
                                             compl.get(b, b)
@@ -478,17 +391,17 @@ def gen_Miseq_data(pro):
                         idxs[0].replace(",", "").upper() == ""
                         and idxs[1].replace(",", "").upper() == ""
                     ):
-                        sp_obj["idx1"] = ""
-                        sp_obj["idx2"] = ""
+                        sp_obj["index_1"] = ""
+                        sp_obj["index_2"] = ""
                         data.append(sp_obj)
                     # Ordinary indexes
                     else:
-                        sp_obj["idx1"] = idxs[0].replace(",", "").upper()
+                        sp_obj["index_1"] = idxs[0].replace(",", "").upper()
                         if idxs[1]:
                             if pj_type == "by user":
-                                sp_obj["idx2"] = idxs[1].replace(",", "").upper()
+                                sp_obj["index_2"] = idxs[1].replace(",", "").upper()
                             else:
-                                sp_obj["idx2"] = "".join(
+                                sp_obj["index_2"] = "".join(
                                     reversed(
                                         [
                                             compl.get(b, b)
@@ -497,16 +410,16 @@ def gen_Miseq_data(pro):
                                     )
                                 )
                         else:
-                            sp_obj["idx2"] = ""
+                            sp_obj["index_2"] = ""
                         data.append(sp_obj)
 
-    if is_key_empty_in_all_dicts("idx1", data):
+    if is_key_empty_in_all_dicts("index_1", data):
         header_ar.remove("index")
-        key_order.remove("idx1")
+        key_order.remove("index_1")
         chem = "Default"
-    if is_key_empty_in_all_dicts("idx2", data):
+    if is_key_empty_in_all_dicts("index_2", data):
         header_ar.remove("index2")
-        key_order.remove("idx2")
+        key_order.remove("index_2")
         chem = "Default"
 
     header = "{}\n".format(",".join(header_ar))
@@ -523,11 +436,12 @@ def gen_Miseq_data(pro):
     content = df.to_csv(index=False)
     content = f"[Data]\n{content}\n"
 
-    return (content, data, chem)
+    return (content, data, chem, len(lanes))
 
 
 def gen_Nextseq_lane_data(pro):
     data = []
+    lanes = set()
     header_ar = [
         "FCID",
         "Lane",
@@ -550,13 +464,14 @@ def gen_Nextseq_lane_data(pro):
                 for idxs in sample_idxs:
                     sp_obj = {}
                     sp_obj["lane"] = out.location[1].split(":")[0].replace(",", "")
+                    lanes.add(sp_obj["lane"])
                     if NGISAMPLE_PAT.findall(sample.name):
-                        sp_obj["sid"] = f"Sample_{sample.name}".replace(",", "")
-                        sp_obj["sn"] = sample.name.replace(",", "")
-                        sp_obj["pj"] = sample.project.name.replace(".", "__").replace(
-                            ",", ""
-                        )
-                        sp_obj["ref"] = sample.project.udf.get(
+                        sp_obj["sample_id"] = f"Sample_{sample.name}".replace(",", "")
+                        sp_obj["sample_name"] = sample.name.replace(",", "")
+                        sp_obj["sample_project"] = sample.project.name.replace(
+                            ".", "__"
+                        ).replace(",", "")
+                        sp_obj["sample_ref"] = sample.project.udf.get(
                             "Reference genome", ""
                         ).replace(",", "")
                         seq_setup = sample.project.udf.get("Sequencing setup", "")
@@ -564,52 +479,57 @@ def gen_Nextseq_lane_data(pro):
                             sp_obj["rc"] = "{}-{}".format(
                                 seq_setup.split("-")[0], seq_setup.split("-")[3]
                             )
+                            sp_obj["recipe"] = seq_setup
                         else:
                             sp_obj["rc"] = "0-0"
+                            sp_obj["recipe"] = "0-0-0-0"
                     else:
-                        sp_obj["sid"] = (
+                        sp_obj["sample_id"] = (
                             f"Sample_{sample.name}".replace("(", "")
                             .replace(")", "")
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["sn"] = (
+                        sp_obj["sample_name"] = (
                             sample.name.replace("(", "")
                             .replace(")", "")
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["pj"] = "Control"
-                        sp_obj["ref"] = "Control"
+                        sp_obj["sample_project"] = "Control"
+                        sp_obj["sample_ref"] = "Control"
                         sp_obj["rc"] = "0-0"
-                    sp_obj["ct"] = "N"
-                    sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
+                        sp_obj["recipe"] = "0-0-0-0"
+                    sp_obj["control"] = "N"
+                    sp_obj["operator"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
+                    sp_obj["flowcell_id"] = (
+                        out.location[0].name.replace(",", "").upper()
+                    )
                     sp_obj["sw"] = out.location[1].replace(",", "")
-                    sp_obj["idx1"] = idxs[0].replace(",", "")
+                    sp_obj["index_1"] = idxs[0].replace(",", "")
                     if idxs[1]:
-                        sp_obj["idx2"] = idxs[1].replace(",", "").upper()
+                        sp_obj["index_2"] = idxs[1].replace(",", "").upper()
                     else:
-                        sp_obj["idx2"] = ""
+                        sp_obj["index_2"] = ""
                     data.append(sp_obj)
     header = "{}\n".format(",".join(header_ar))
     str_data = ""
     for line in sorted(data, key=lambda x: x["lane"]):
         l_data = [
-            line["fc"],
+            line["flowcell_id"],
             line["lane"],
-            line["sn"],
-            line["sn"],
-            line["ref"],
-            line["idx1"],
-            line["idx2"],
-            line["pj"],
-            line["ct"],
+            line["sample_name"],
+            line["sample_name"],
+            line["sample_ref"],
+            line["index_1"],
+            line["index_2"],
+            line["sample_project"],
+            line["control"],
             line["rc"],
-            line["op"],
-            line["pj"],
+            line["operator"],
+            line["sample_project"],
         ]
         str_data = str_data + ",".join(l_data) + "\n"
 
@@ -618,7 +538,7 @@ def gen_Nextseq_lane_data(pro):
     df = df.sort_values(["Lane", "Sample_ID"])
     content = df.to_csv(index=False)
 
-    return (content, data)
+    return (content, data, len(lanes))
 
 
 def find_barcode(sample_idxs, sample, process):
@@ -657,12 +577,39 @@ def find_barcode(sample_idxs, sample, process):
                     find_barcode(sample_idxs, sample, art.parent_process)
 
 
+def upload_to_genstat(data, metadata, fc_name):
+    config_genstat = "~/config/genstat-conf.yaml"
+    with open(os.path.expanduser(config_genstat)) as config_file:
+        config: dict[str, Any] = yaml.safe_load(config_file)
+    if not config["samplesheet_key"]:
+        email_responsible(
+            f"Genomics status token credentials not found in {lims}\n Samplesheet upload for {fc_name} failed on LIMS! Please contact genomics-bioinfo@scilifelab.se to resolve the issue!",
+            "genomics-bioinfo@scilifelab.se",
+        )
+        sys.exit(2)
+
+    signed_jwt: str = create_jwt_token(config["samplesheet_key"])
+    genstat_sample_info_url = (
+        f"{config['genomics-status-url']}/api/v1/demux_sample_info/{fc_name}"
+    )
+    result: requests.Response = requests.post(
+        genstat_sample_info_url,
+        headers={"Authorization": f"Bearer {signed_jwt}"},
+        json={"uploaded_lims_info": data, "metadata": metadata},
+    )
+
+    if result.status_code != 201:
+        msg = f"Samplesheet upload failed from {lims} to {config['genomics-status-url']} for {fc_name}"
+        msg += f"\nStatus code: {result.status_code}\nResponse: {result.text}\n"
+        email_responsible(msg, "genomics-bioinfo@scilifelab.se")
+
+
 def test():
     log = []
     d = [
-        {"lane": 1, "idx1": "ATTT", "idx2": ""},
-        {"lane": 1, "idx1": "ATCTATCG", "idx2": ""},
-        {"lane": 1, "idx1": "ATCG", "idx2": "ATCG"},
+        {"lane": 1, "index_1": "ATTT", "index_2": ""},
+        {"lane": 1, "index_1": "ATCTATCG", "index_2": ""},
+        {"lane": 1, "index_1": "ATCG", "index_2": "ATCG"},
     ]
     check_index_distance(d, log)
     print(log)
@@ -670,6 +617,7 @@ def test():
 
 def main(lims, args):
     log = []
+    num_lanes = 0
     thisyear = datetime.now().year
     content = None
     if args.mytest:
@@ -677,29 +625,14 @@ def main(lims, args):
     else:
         process = Process(lims, id=args.pid)
 
-        if "Load to Flowcell (NovaSeq 6000 v2.0)" == process.type.name:
-            (content, obj) = gen_Novaseq_lane_data(process)
-            check_index_distance(obj, log)
-            if os.path.exists(f"/srv/ngi-nas-ns/samplesheets/novaseq/{thisyear}"):
-                try:
-                    with open(
-                        "/srv/ngi-nas-ns/samplesheets/novaseq/{}/{}.csv".format(
-                            thisyear, obj[0]["fc"]
-                        ),
-                        "w",
-                    ) as sf:
-                        sf.write(content)
-                except Exception as e:
-                    log.append(str(e))
-
-        elif "Load to Flowcell (NovaSeqXPlus)" in process.type.name:
-            (content, obj) = gen_NovaSeqXPlus_lane_data(process)
+        if "Load to Flowcell (NovaSeqXPlus)" in process.type.name:
+            (content, obj, num_lanes) = gen_NovaSeqXPlus_lane_data(process)
             check_index_distance(obj, log)
             if os.path.exists(f"/srv/ngi-nas-ns/samplesheets/NovaSeqXPlus/{thisyear}"):
                 try:
                     with open(
                         "/srv/ngi-nas-ns/samplesheets/NovaSeqXPlus/{}/{}.csv".format(
-                            thisyear, obj[0]["fc"]
+                            thisyear, obj[0]["flowcell_id"]
                         ),
                         "w",
                     ) as sf:
@@ -710,18 +643,18 @@ def main(lims, args):
         elif process.type.name == "Denature, Dilute and Load Sample (MiSeq) 4.0":
             reads = gen_Miseq_reads(process)
             settings = gen_Miseq_settings(process)
-            (content, obj, chem) = gen_Miseq_data(process)
+            (content, obj, chem, num_lanes) = gen_Miseq_data(process)
             header = gen_Miseq_header(process, chem)
             check_index_distance(obj, log)
             content = f"{header}{reads}{settings}{content}"
 
         elif process.type.name == "Load to Flowcell (NextSeq v1.0)":
-            (content, obj) = gen_Nextseq_lane_data(process)
+            (content, obj, num_lanes) = gen_Nextseq_lane_data(process)
             check_index_distance(obj, log)
             nextseq_fc = (
                 process.udf["Flowcell Series Number"]
                 if process.udf["Flowcell Series Number"]
-                else obj[0]["fc"]
+                else obj[0]["flowcell_id"]
             )
             if os.path.exists(f"/srv/ngi-nas-ns/samplesheets/nextseq/{thisyear}"):
                 try:
@@ -734,7 +667,7 @@ def main(lims, args):
                     log.append(str(e))
 
         elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
-            (content, obj) = gen_Nextseq_lane_data(process)
+            (content, obj, num_lanes) = gen_Nextseq_lane_data(process)
             check_index_distance(obj, log)
             miseqi100_fc = (
                 process.udf["Flowcell Series Number"]
@@ -756,7 +689,7 @@ def main(lims, args):
                 if out.name == "Scilifelab SampleSheet":
                     ss_art = out
                 elif out.name == "Scilifelab Log":
-                    log_id = out.id
+                    log_art = out
                 elif out.type == "Analyte":
                     if process.type.name == "Load to Flowcell (NextSeq v1.0)":
                         fc_name = (
@@ -788,12 +721,36 @@ def main(lims, args):
             with open(f"{fc_name}.csv", "w", 0o664) as f:
                 f.write(content)
             os.chmod(f"{fc_name}.csv", 0o664)
+            # Upload samplesheet to CouchDB through Genstat
+            run_setup = f"{process.udf.get('Read 1 Cycles')}_{process.udf.get('Index Read 1', 'x')}_{process.udf.get('Index Read 2', 'x')}_{process.udf.get('Read 2 Cycles')}"
+
+            # Determine instrument type from process name
+            instrument_type_mapping = {
+                "Load to Flowcell (NovaSeqXPlus)": "NovaSeqXPlus",
+                "Denature, Dilute and Load Sample (MiSeq) 4.0": "MiSeq",
+                "Load to Flowcell (NextSeq v1.0)": "NextSeq",
+                "Load to Flowcell (MiSeq i100) v1.0": "MiSeq i100",
+            }
+            instrument_type = instrument_type_mapping.get(process.type.name, "")
+
+            metadata = {
+                "num_lanes": num_lanes,
+                "run_setup": run_setup,
+                "setup_lims_step_id": process.id,
+                "instrument_type": instrument_type,
+                "run_mode": process.udf.get("Run Mode", ""),
+            }
+            # Check that content exists to upload obj
+            if content:
+                upload_to_genstat(obj, metadata, fc_name)
             for f in ss_art.files:
                 lims.request_session.delete(f.uri)
             lims.upload_new_file(ss_art, f"{fc_name}.csv")
             if log:
-                with open(f"{log_id}_{fc_name}_Error.log", "w") as f:
+                with open(f"{log_art.id}_{fc_name}_Error.log", "w") as f:
                     f.write("\n".join(log))
+                # Upload log to file slot
+                lims.upload_new_file(log_art, f"{log_art.id}_{fc_name}_Error.log")
 
                 sys.stderr.write("Errors were met, check the log.")
                 sys.exit(2)
