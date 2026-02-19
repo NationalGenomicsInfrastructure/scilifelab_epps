@@ -1,8 +1,16 @@
 # Scilifelab_epps Version Log
 
-## 20260115.1
+## 20260219.1
 
 Update sample_generator to upload samplesheets to a genomics-status api
+
+## 20260211.1
+
+Enable the integration of MiSeq i100 into LIMS
+
+## 20260128.1
+
+fix: ensure reads is a list to prevent TypeError on Read 1 Only runs
 
 ## 20251216.1
 

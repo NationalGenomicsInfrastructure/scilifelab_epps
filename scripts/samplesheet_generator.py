@@ -666,6 +666,24 @@ def main(lims, args):
                 except Exception as e:
                     log.append(str(e))
 
+        elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
+            (content, obj) = gen_Nextseq_lane_data(process)
+            check_index_distance(obj, log)
+            miseqi100_fc = (
+                process.udf["Flowcell Series Number"]
+                if process.udf["Flowcell Series Number"]
+                else obj[0]["fc"]
+            )
+            if os.path.exists(f"/srv/ngi-nas-ns/samplesheets/MiSeqi100/{thisyear}"):
+                try:
+                    with open(
+                        f"/srv/ngi-nas-ns/samplesheets/MiSeqi100/{thisyear}/{miseqi100_fc}.csv",
+                        "w",
+                    ) as sf:
+                        sf.write(content)
+                except Exception as e:
+                    log.append(str(e))
+
         if not args.test:
             for out in process.all_outputs():
                 if out.name == "Scilifelab SampleSheet":
