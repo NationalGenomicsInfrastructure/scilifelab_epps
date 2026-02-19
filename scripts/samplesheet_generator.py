@@ -667,7 +667,7 @@ def main(lims, args):
                     log.append(str(e))
 
         elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
-            (content, obj) = gen_Nextseq_lane_data(process)
+            (content, obj, num_lanes) = gen_Nextseq_lane_data(process)
             check_index_distance(obj, log)
             miseqi100_fc = (
                 process.udf["Flowcell Series Number"]
