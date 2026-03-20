@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260320.1
+
+Add functions to project validator
+
 ## 20260211.1
 
 Enable the integration of MiSeq i100 into LIMS
