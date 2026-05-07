@@ -2,7 +2,7 @@
 
 ## 20260506.1
 
-Reverse index 2 for MiSeq i100 for in-house libraries and bug fix for + symbol in manage demux stats in bcl conversion step.
+Reverse complement index 2 for MiSeq i100 for in-house libraries and bug fix for + symbol in manage demux stats in bcl conversion step.
 
 ## 20260330.1
 
