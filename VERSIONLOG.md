@@ -4,6 +4,9 @@
 
 Reverse complement index 2 for MiSeq i100 for in-house libraries and bug fix for + symbol in manage demux stats in bcl conversion step.
 
+## 20250915.1
+
+Remove ONT EPPs to be replaced by UDF formulas, add ONT demux stats EPP, tweak UDF formulas EPP to be less upset about missing values.
 ## 20260330.1
 
 Bug fix for + symbol in miseq flowcell id and add several lims steps for comments to running notes.
