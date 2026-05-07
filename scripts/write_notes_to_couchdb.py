@@ -9,7 +9,7 @@ import sys
 from email.message import Message
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Optional
+from typing import Any
 
 import requests
 import yaml
@@ -97,8 +97,8 @@ def email_responsible(
     message: str,
     resp_email: str,
     error: bool = True,
-    subject: Optional[str] = None,
-    html: Optional[str] = None,
+    subject: str | None = None,
+    html: str | None = None,
 ) -> None:
     msg: Message
     if error:

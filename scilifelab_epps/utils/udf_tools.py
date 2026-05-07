@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import xml.etree.ElementTree as ET
-from typing import Any, Union
+from typing import Any
 
 from genologics.entities import Artifact, Process
 from requests.exceptions import HTTPError
@@ -120,7 +120,7 @@ def fetch_from_tuple(art_tuple: tuple, target_udfs: str | list, on_fail=Assertio
         return on_fail
 
 
-def fetch(art: Artifact, target_udfs: Union[str, list], on_fail=AssertionError):
+def fetch(art: Artifact, target_udfs: str | list, on_fail=AssertionError):
     """Try to fetch UDF from artifact, optionally without causing fatal error.
 
     Target UDF can be supplied as a string, or as a prioritized list of strings.

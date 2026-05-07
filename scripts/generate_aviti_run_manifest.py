@@ -583,6 +583,7 @@ def main(args: Namespace):
         args.file,
         process,
         lims,
+        remove=False,
     )
 
     # Move manifest(s)

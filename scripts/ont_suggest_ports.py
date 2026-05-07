@@ -21,8 +21,7 @@ def main(lims, args):
         outputs = [op for op in currentStep.all_outputs() if op.type == "Analyte"]
 
         # Get database
-        db = get_ONT_db()
-        view = db.view("info/all_stats")
+        client, db_name = get_ONT_db()
 
         # Instantiate dict for counting port usage
         ports = {}
@@ -34,10 +33,16 @@ def main(lims, args):
             r"/\d{8}_\d{4}_([1-8][A-H])_"
         )  # Matches start of run name, capturing position as a group
 
+        view = client.post_view(
+            db=db_name,
+            ddoc="info",
+            view="all_stats",
+            include_docs=False,
+        ).get_result()
         # Count port usage
-        for row in view.rows:
-            if re.search(pattern, row.value["TACA_run_path"]):
-                position = re.search(pattern, row.value["TACA_run_path"]).groups()[0]
+        for row in view["rows"]:
+            if re.search(pattern, row["value"]["TACA_run_path"]):
+                position = re.search(pattern, row["value"]["TACA_run_path"]).groups()[0]
                 ports[position] += 1
 
         # Sort ports (a sort of port sort, if you will)

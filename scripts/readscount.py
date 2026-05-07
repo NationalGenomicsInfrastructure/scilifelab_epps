@@ -33,6 +33,7 @@ SEQUENCING_STEPS = [
     "NovaSeqXPlus Run v1.0",
     "ONT Start Sequencing v3.0",
     "AVITI Run v1.0",
+    "Illumina Sequencing (MiSeq i100) v1.0",
 ]
 
 

@@ -48,9 +48,11 @@ def main(lims, args):
         )
 
         df["conc_nM"] = df.apply(
-            lambda x: x
-            if x["conc_units"] == "nM"
-            else formula.ng_ul_to_nM(x["conc"], x["size_bp"]),
+            lambda x: (
+                x
+                if x["conc_units"] == "nM"
+                else formula.ng_ul_to_nM(x["conc"], x["size_bp"])
+            ),
             axis=1,
         )
 

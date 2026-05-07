@@ -162,7 +162,7 @@ def generate_MinKNOW_samplesheet(process):
 
     errors = []
 
-    lims_kit = process.udf["ONT prep kit"]
+    lims_kit = process.udf["ONT prep kit"].replace(".", "-")
 
     ont_libraries = [art for art in process.all_outputs() if art.type == "Analyte"]
     ont_libraries.sort(key=lambda art: art.id)

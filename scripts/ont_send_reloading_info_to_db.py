@@ -6,12 +6,11 @@ import re
 from argparse import ArgumentParser
 from datetime import datetime as dt
 
-import couchdb
 import yaml
-from couchdb.client import Database, Document, Row, ViewResults
 from genologics.config import BASEURI, PASSWORD, USERNAME
 from genologics.entities import Artifact, Process
 from genologics.lims import Lims
+from ibmcloudant import CouchDbSessionAuthenticator, cloudant_v1
 
 from scilifelab_epps.wrapper import epp_decorator
 
@@ -38,15 +37,21 @@ def send_reloading_info_to_db(process: Process):
         if run:
             runs.append(run)
 
-    db: Database = get_ONT_db()
-    view: ViewResults = db.view("info/all_stats")
+    client, db_name = get_ONT_db()
+
+    view: dict = client.post_view(
+        db=db_name,
+        ddoc="info",
+        view="all_stats",
+        include_docs=False,
+    ).get_result()
 
     errors = False
     for run in runs:
-        rows_matching_run: list[Row] = [
+        rows_matching_run: list[dict] = [
             row
-            for row in view.rows
-            if f"{run['run_name']}" in row.value["TACA_run_path"]
+            for row in view["rows"]
+            if f"{run['run_name']}" in row["value"]["TACA_run_path"]
         ]
 
         try:
@@ -57,8 +62,8 @@ def send_reloading_info_to_db(process: Process):
                 f"The database contains multiple documents with run name '{run['run_name']}'. Contact a database administrator."
             )
 
-            doc_id: str = rows_matching_run[0].id
-            doc: Document = db[doc_id]
+            doc_id: str = rows_matching_run[0]["id"]
+            doc: dict = client.get_document(db=db_name, doc_id=doc_id).get_result()
 
             dict_to_add = {
                 "step_name": process.type.name,
@@ -76,7 +81,7 @@ def send_reloading_info_to_db(process: Process):
                 doc["lims"]["reloading"] = []
             doc["lims"]["reloading"].append(dict_to_add)
 
-            db[doc.id] = doc
+            client.put_document(db=db_name, doc_id=doc_id, document=doc).get_result()
 
             logging.info(f"Run '{run['run_name']}' was updated successfully.")
 
@@ -157,17 +162,20 @@ def check_times_list(times_list: list[str]):
         prev_hours, prev_minutes = hours, minutes
 
 
-def get_ONT_db() -> Database:
-    """Mostly copied from write_notes_to_couchdb.py"""
+def get_ONT_db() -> tuple[cloudant_v1.CloudantV1, str]:
     configf = "~/.statusdb_cred.yaml"
 
     with open(os.path.expanduser(configf)) as config_file:
         config = yaml.safe_load(config_file)
 
-    url_string = f"https://{config['statusdb'].get('username')}:{config['statusdb'].get('password')}@{config['statusdb'].get('url')}"
-    couch = couchdb.Server(url=url_string)
+    cloudant = cloudant_v1.CloudantV1(
+        authenticator=CouchDbSessionAuthenticator(
+            config["statusdb"].get("username"), config["statusdb"].get("password")
+        )
+    )
+    cloudant.set_service_url(f"https://{config['statusdb'].get('url')}")
 
-    return couch["nanopore_runs"]
+    return (cloudant, "nanopore_runs")
 
 
 def check_csv_udf_list(pattern: str, csv_udf_list: list[str]) -> bool:
