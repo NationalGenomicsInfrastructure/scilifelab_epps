@@ -526,7 +526,7 @@ def gen_Miseq_data(pro):
     return (content, data, chem)
 
 
-def gen_Nextseq_lane_data(pro):
+def gen_Nextseq_lane_data(pro, rc_idx2=False):
     data = []
     header_ar = [
         "FCID",
@@ -560,6 +560,12 @@ def gen_Nextseq_lane_data(pro):
                             "Reference genome", ""
                         ).replace(",", "")
                         seq_setup = sample.project.udf.get("Sequencing setup", "")
+                        pj_type = (
+                            "by user"
+                            if sample.project.udf["Library construction method"]
+                            == "Finished library (by user)"
+                            else "inhouse"
+                        )
                         if SEQSETUP_PAT.findall(seq_setup):
                             sp_obj["rc"] = "{}-{}".format(
                                 seq_setup.split("-")[0], seq_setup.split("-")[3]
@@ -582,6 +588,7 @@ def gen_Nextseq_lane_data(pro):
                         sp_obj["pj"] = "Control"
                         sp_obj["ref"] = "Control"
                         sp_obj["rc"] = "0-0"
+                        pj_type = "Control"
                     sp_obj["ct"] = "N"
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
@@ -594,7 +601,17 @@ def gen_Nextseq_lane_data(pro):
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["idx1"] = idxs[0].replace(",", "")
                     if idxs[1]:
-                        sp_obj["idx2"] = idxs[1].replace(",", "").upper()
+                        if rc_idx2 and pj_type == "inhouse":
+                            sp_obj["idx2"] = "".join(
+                                reversed(
+                                    [
+                                        compl.get(b, b)
+                                        for b in idxs[1].replace(",", "").upper()
+                                    ]
+                                )
+                            )
+                        else:
+                            sp_obj["idx2"] = idxs[1].replace(",", "").upper()
                     else:
                         sp_obj["idx2"] = ""
                     data.append(sp_obj)
@@ -738,7 +755,7 @@ def main(lims, args):
                     log.append(str(e))
 
         elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
-            (content, obj) = gen_Nextseq_lane_data(process)
+            (content, obj) = gen_Nextseq_lane_data(process, rc_idx2=True)
             check_index_distance(obj, log)
             # Add flowcell ID correction here
             miseqi100_fc = (
