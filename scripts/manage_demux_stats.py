@@ -314,7 +314,13 @@ def set_sample_values(demux_process, parser_struct, process_stats):
     run_id = process_stats["Run ID"]
     if process_stats["Instrument"] in ["NextSeq", "miseq"]:
         run_id = process_stats["Reagent Cartridge ID"]
-    assert container_names[0] in run_id, (
+    # MiSeq and MiSeq i100 flowcell names use '+' as separator, but the run folder uses '-'
+    fc_name_normalized = (
+        container_names[0].replace("+", "-")
+        if process_stats["Instrument"] in ["miseq", "MiSeqi100"]
+        else container_names[0]
+    )
+    assert fc_name_normalized in run_id, (
         f"Flowcell name {container_names[0]} seems unrelated to run {run_id}"
     )
 

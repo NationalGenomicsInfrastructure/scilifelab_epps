@@ -1,8 +1,12 @@
 # Scilifelab_epps Version Log
 
-## 20260413.1
+## 20260520.1
 
 Add index length to error when encountering differing index lengths
+
+## 20260506.1
+
+Reverse complement index 2 for MiSeq i100 for in-house libraries and bug fix for + symbol in manage demux stats in bcl conversion step.
 
 ## 20260330.1
 
@@ -31,6 +35,10 @@ Set default to false for file removal in file upload, pass parameter as false in
 ## 20251105.1
 
 Fix bugs in ONT couchdb connections
+
+## 20250915.1
+
+Remove ONT EPPs to be replaced by UDF formulas, add ONT demux stats EPP, tweak UDF formulas EPP to be less upset about missing values.
 
 ## 20251104.1
 
