@@ -321,8 +321,7 @@ def set_sample_values(demux_process, parser_struct, process_stats):
         else container_names[0]
     )
     assert fc_name_normalized in run_id, (
-        f"Flowcell name {container_names[0]} "
-        f"(normalized: {fc_name_normalized}) seems unrelated to run {run_id}"
+        f"Flowcell name {container_names[0]} seems unrelated to run {run_id}"
     )
 
     for pool in demux_process.all_inputs():
