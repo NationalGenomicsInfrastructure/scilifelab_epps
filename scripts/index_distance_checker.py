@@ -48,6 +48,10 @@ def verify_indexes(data):
         idx_length = set()
         for i, sample_a in enumerate(subset[:-1]):
             idx_a = sample_a.get("idx1", "") + "-" + sample_a.get("idx2", "")
+            if len(idx_a) > 1 and len(idx_a) not in idx_length and len(idx_length) > 0:
+                message.append(
+                    f"INDEX WARNING: Sample {sample_a.get('sn', '')} in pool {p} has an index of unexpected length: {idx_a}"
+                )
             idx_length.add(len(idx_a))
             if sample_a.get("idx1", "") == "" and sample_a.get("idx2", "") == "":
                 message.append(

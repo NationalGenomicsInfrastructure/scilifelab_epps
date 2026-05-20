@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260520.1
+
+Add index length to error when encountering differing index lengths
+
 ## 20260506.1
 
 Reverse complement index 2 for MiSeq i100 for in-house libraries and bug fix for + symbol in manage demux stats in bcl conversion step.
