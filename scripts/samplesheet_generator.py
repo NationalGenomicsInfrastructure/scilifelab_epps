@@ -439,7 +439,7 @@ def gen_Miseq_data(pro):
     return (content, data, chem, len(lanes))
 
 
-def gen_Nextseq_lane_data(pro):
+def gen_Nextseq_lane_data(pro, rc_idx2=False):
     data = []
     lanes = set()
     header_ar = [
@@ -476,6 +476,12 @@ def gen_Nextseq_lane_data(pro):
                             "Reference genome", ""
                         ).replace(",", "")
                         seq_setup = sample.project.udf.get("Sequencing setup", "")
+                        pj_type = (
+                            "by user"
+                            if sample.project.udf["Library construction method"]
+                            == "Finished library (by user)"
+                            else "inhouse"
+                        )
                         if SEQSETUP_PAT.findall(seq_setup):
                             sp_obj["rc"] = "{}-{}".format(
                                 seq_setup.split("-")[0], seq_setup.split("-")[3]
@@ -500,19 +506,31 @@ def gen_Nextseq_lane_data(pro):
                         sp_obj["sample_project"] = "Control"
                         sp_obj["description"] = "Control"
                         sp_obj["sample_ref"] = "Control"
-                        sp_obj["rc"] = "0-0"
                         sp_obj["recipe"] = "0-0-0-0"
+                        pj_type = "Control"
                     sp_obj["control"] = "N"
                     sp_obj["operator"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
+                    # Add flowcell ID correction here
                     sp_obj["flowcell_id"] = (
-                        out.location[0].name.replace(",", "").upper()
+                        out.location[0].name.replace(",", "").upper().replace("+", "-")
                     )
+
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["index_1"] = idxs[0].replace(",", "")
                     if idxs[1]:
-                        sp_obj["index_2"] = idxs[1].replace(",", "").upper()
+                        if rc_idx2 and pj_type == "inhouse":
+                            sp_obj["index_2"] = "".join(
+                                reversed(
+                                    [
+                                        compl.get(b, b)
+                                        for b in idxs[1].replace(",", "").upper()
+                                    ]
+                                )
+                            )
+                        else:
+                            sp_obj["index_2"] = idxs[1].replace(",", "").upper()
                     else:
                         sp_obj["index_2"] = ""
                     data.append(sp_obj)
@@ -675,13 +693,15 @@ def main(lims, args):
                     log.append(str(e))
 
         elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
-            (content, obj, num_lanes) = gen_Nextseq_lane_data(process)
+            (content, obj, num_lanes) = gen_Nextseq_lane_data(process, rc_idx2=True)
             check_index_distance(obj, log)
+            # Add flowcell ID correction here
             miseqi100_fc = (
-                process.udf["Flowcell Series Number"]
-                if process.udf["Flowcell Series Number"]
+                process.udf.get("Flowcell Series Number")
+                if process.udf.get("Flowcell Series Number")
                 else obj[0]["fc"]
-            )
+            ).replace("+", "-")
+
             if os.path.exists(f"/srv/ngi-nas-ns/samplesheets/MiSeqi100/{thisyear}"):
                 try:
                     with open(
@@ -705,6 +725,14 @@ def main(lims, args):
                             if process.udf["Flowcell Series Number"]
                             else out.location[0].name.upper()
                         )
+                    # Add flowcell ID correction here
+                    elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
+                        fc_name = (
+                            process.udf["Flowcell Series Number"].upper()
+                            if process.udf.get("Flowcell Series Number")
+                            else out.location[0].name.upper()
+                        ).replace("+", "-")
+
                     else:
                         fc_name = out.location[0].name.upper()
                 elif process.type.name in [

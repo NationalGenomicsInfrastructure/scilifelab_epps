@@ -77,16 +77,30 @@ def fetch_rundir(fc_id, run_type):
         data_dir = "NovaSeqXPlus_data"
 
     metadata_dir = "ngi-nas-ns"
-    run_dir_path = os.path.join(os.sep, "srv", metadata_dir, data_dir, f"*{fc_id}")
 
-    if len(glob.glob(run_dir_path)) == 1:
-        run_dir = glob.glob(run_dir_path)[0]
-    elif len(glob.glob(run_dir_path)) == 0:
+    # helper to find the path
+    def search_for_fc(target_id):
+        path = os.path.join(os.sep, "srv", metadata_dir, data_dir, f"*{target_id}")
+        return glob.glob(path)
+
+    # Attempt 1: Standard search
+    matches = search_for_fc(fc_id)
+
+    # Attempt 2: Rare case fallback (if '+' exists and no match was found)
+    if not matches and "+" in fc_id:
+        alt_fc_id = fc_id.replace("+", "-")
+        matches = search_for_fc(alt_fc_id)
+
+    # Logic for handling results
+    if len(matches) == 1:
+        run_dir = matches[0]
+    elif len(matches) == 0:
         sys.stderr.write(f"No run dir can be found for FC {fc_id}")
         sys.exit(2)
     else:
         sys.stderr.write(f"Multiple run dirs found for FC {fc_id}")
         sys.exit(2)
+
     return run_dir
 
 
