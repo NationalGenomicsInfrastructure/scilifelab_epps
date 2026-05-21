@@ -90,11 +90,15 @@ def main(args):
 
     an_analyte_container = pro.output_containers()[0]
     container_name = None
+    container_type = None
     if instrument_type == "NextSeq":
         container_name = pro_udfs["Flowcell Series Number"]
+        container_type = (
+            f"{an_analyte_container.type.name} - Cycle kit {pro_udfs['Cycle Kit']}"
+        )
     elif instrument_type == "NovaSeqXPlus":
         container_name = an_analyte_container.name
-    container_type = an_analyte_container.type.name
+        container_type = an_analyte_container.type.name
     for well, pool_artifact in an_analyte_container.placements.items():
         if pool_artifact.id in pools:
             pools[pool_artifact.id]["lane"] = well.split(":")[0]
