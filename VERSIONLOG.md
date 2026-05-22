@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260521.1
+
+Add NextSeq Load to Flowcell to runningnotes_from_sequencing
+
 ## 20260520.1
 
 Add index length to error when encountering differing index lengths
