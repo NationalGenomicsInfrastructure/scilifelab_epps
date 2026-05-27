@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260527.1
+
+Upgrade actions versions ahead of node.js 20 deprecation
+
 ## 20260521.1
 
 Add NextSeq Load to Flowcell to runningnotes_from_sequencing
