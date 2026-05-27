@@ -331,7 +331,7 @@ def prepare_index_table(process):
                                     f"ONT barcode '{ont_barcode_name}' not found in barcode database for sample {sample.name}"
                                 )
                                 sp_obj["idx1"] = ""
-                            
+
                             sp_obj["idx2"] = ""
                             data.append(sp_obj)
                         else:
