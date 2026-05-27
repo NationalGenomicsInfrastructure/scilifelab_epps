@@ -603,7 +603,7 @@ def upload_to_genstat(data, metadata, fc_name, lims_uri):
         config: dict[str, Any] = yaml.safe_load(config_file)
     if not config["samplesheet_key"]:
         email_responsible(
-            f"Genomics status token credentials not found in {lims_uri}\n Samplesheet upload for {fc_name} failed on LIMS! Please contact genomics-bioinfo@scilifelab.se to resolve the issue!",
+            f"Genomics status token credentials not found in {lims_uri}\n Samplesheet upload for {fc_name} failed on LIMS!",
             "genomics-bioinfo@scilifelab.se",
         )
         sys.exit(2)
