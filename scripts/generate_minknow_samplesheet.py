@@ -226,7 +226,9 @@ def generate_MinKNOW_samplesheet(process):
 
                 for barcode_row_data in barcode_rows_data:
                     row["alias"] = sanitize_string(barcode_row_data[alias_column_name])
-                    barcode_id = get_barcode_info(barcode_row_data["ont_barcode"])["num"]
+                    barcode_id = get_barcode_info(barcode_row_data["ont_barcode"])[
+                        "num"
+                    ]
                     row["barcode"] = f"barcode{str(barcode_id).zfill(2)}"
 
                     assert re.match(r"barcode\d{2}", row["barcode"])

@@ -35,7 +35,9 @@ VALIDBASES_PAT = re.compile(r"^[ATCGN\-]+$")
 TENX_SINGLE_PAT = re.compile("SI-(?:GA|NA)-[A-H][1-9][0-2]?")
 TENX_DUAL_PAT = re.compile("SI-(?:TT|NT|NN|TN|TS)-[A-H][1-9][0-2]?")
 SMARTSEQ_PAT = re.compile("SMARTSEQ[1-9]?-[1-9][0-9]?[A-P]")
-ONT_PAT = re.compile(r"^(?:NB|BC|RB|BP|RLB|16S)\d{1,2}[A-Z]?$")  # Matches NB01, BC15, RB01, 16S05, etc.
+ONT_PAT = re.compile(
+    r"^(?:NB|BC|RB|BP|RLB|16S)\d{1,2}[A-Z]?$"
+)  # Matches NB01, BC15, RB01, 16S05, etc.
 NGISAMPLE_PAT = re.compile("P[0-9]+_[0-9]+")
 
 
