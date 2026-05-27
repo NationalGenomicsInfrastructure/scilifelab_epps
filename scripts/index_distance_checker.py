@@ -12,7 +12,7 @@ from genologics.entities import Process
 from genologics.lims import Lims
 
 from data.Chromium_10X_indexes import Chromium_10X_indexes
-from data.ONT_barcodes import ont_name2seq, get_barcode_info
+from data.ONT_barcodes import get_barcode_info
 from scilifelab_epps.epp import attach_file
 
 SMARTSEQ3_indexes_json = (
