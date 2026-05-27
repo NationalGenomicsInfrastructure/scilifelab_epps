@@ -13,7 +13,7 @@ from genologics.entities import Artifact, Process
 from genologics.lims import Lims
 from tabulate import tabulate
 
-from data.ONT_barcodes import ont_label2dict
+from data.ONT_barcodes import get_barcode_info
 from scilifelab_epps.epp import get_pool_sample_label_mapping, upload_file
 from scilifelab_epps.wrapper import epp_decorator
 
@@ -210,12 +210,10 @@ def generate_MinKNOW_samplesheet(process):
                     "Positions must be unassigned for non-PromethION flow cells."
                 )
 
-            # 1) Barcodes implied from kit selection, kit ends with '24' or '96'
-            if lims_kit[-2:] in ["24", "96"]:
-                # Assert barcodes are found within library
-                assert ont_barcodes, (
-                    f"ONT barcodes are implied from kit selection, but no ONT barcodes were found within library {ont_library.name}"
-                )
+            # Process barcodes if present in the library
+            if ont_barcodes:
+                # If kit name suggests barcodes (ends with 24/96), this is expected
+                # If not, barcodes can still be present from manual barcode preparation
 
                 # Append rows for each barcode
                 alias_column_name = "sample_name"
@@ -228,7 +226,7 @@ def generate_MinKNOW_samplesheet(process):
 
                 for barcode_row_data in barcode_rows_data:
                     row["alias"] = sanitize_string(barcode_row_data[alias_column_name])
-                    barcode_id = ont_label2dict[barcode_row_data["ont_barcode"]]["num"]
+                    barcode_id = get_barcode_info(barcode_row_data["ont_barcode"])["num"]
                     row["barcode"] = f"barcode{str(barcode_id).zfill(2)}"
 
                     assert re.match(r"barcode\d{2}", row["barcode"])
@@ -236,11 +234,11 @@ def generate_MinKNOW_samplesheet(process):
 
                     rows.append(row.copy())
 
-            # 2) No barcodes implied from kit selection
             else:
-                # Assert barcodes are not found within library
-                assert not ont_barcodes, (
-                    f"Library '{ont_library.name}' appears to contain ONT barcodes, but no ONT barcodes are implied from the kit selection."
+                # No barcodes in library
+                # Assert that kit selection doesn't suggest barcodes either
+                assert lims_kit[-2:] not in ["24", "96"], (
+                    f"ONT barcodes are implied from kit selection, but no ONT barcodes were found within library {ont_library.name}"
                 )
 
                 # Append single row
