@@ -318,27 +318,22 @@ def prepare_index_table(process):
                         elif ONT_PAT.findall(idxs[0]):
                             # ONT barcode - look up sequence from ONT_barcodes.py
                             ont_barcode_name = ONT_PAT.findall(idxs[0])[0]
+                            sp_obj["pool"] = pool_name
+                            sp_obj["proj_id"] = proj_id
+                            sp_obj["sn"] = sample.name.replace(",", "")
+                            sp_obj["idx_name"] = ont_barcode_name
                             try:
                                 barcode_info = get_barcode_info(ont_barcode_name)
-                                sp_obj["pool"] = pool_name
-                                sp_obj["proj_id"] = proj_id
-                                sp_obj["sn"] = sample.name.replace(",", "")
-                                sp_obj["idx_name"] = ont_barcode_name
                                 sp_obj["idx1"] = barcode_info["seq"]
-                                sp_obj["idx2"] = ""
-                                data.append(sp_obj)
                             except KeyError:
                                 # Barcode not found in ONT database
                                 message.append(
                                     f"ONT barcode '{ont_barcode_name}' not found in barcode database for sample {sample.name}"
                                 )
-                                sp_obj["pool"] = pool_name
-                                sp_obj["proj_id"] = proj_id
-                                sp_obj["sn"] = sample.name.replace(",", "")
-                                sp_obj["idx_name"] = ont_barcode_name
                                 sp_obj["idx1"] = ""
-                                sp_obj["idx2"] = ""
-                                data.append(sp_obj)
+                            
+                            sp_obj["idx2"] = ""
+                            data.append(sp_obj)
                         else:
                             sp_obj["pool"] = pool_name
                             sp_obj["proj_id"] = proj_id
