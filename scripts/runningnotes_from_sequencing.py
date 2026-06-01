@@ -117,13 +117,14 @@ def main(args):
                 pool_text += f"Pool '{pool['pool_name']}', {pool['Loading Conc. (pM)']}pM, {pool['% phiX']}% PhiX, \n"
             elif instrument_type == "NovaSeqXPlus":
                 pool_text += f"Pool '{pool['pool_name']}' in lane {pool['lane']}, {pool['Loading Conc. (pM)']}pM, {pool['% phiX']}% PhiX, \n"
+        general_comments_text = "\n".join(general_comments)
         note = (
             f"Comment from {pro.type.name} ([LIMS]({BASEURI}/clarity/work-details/{pro.id.split('-')[1]})) : \n"
             f"**Sequencing started {date_started} ** by {pro.technician.name}\n"
             f"{pool_text}"
             f"{container_type} FC={container_name}, on {inst}, {seq_setup} \n"
             f"{project_comments} \n"
-            f"{'/n'.join(general_comments)} \n"
+            f"{general_comments_text} \n"
             f"/{epp_initiator.name}"
         )
         note_obj = {
