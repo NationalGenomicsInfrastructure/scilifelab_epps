@@ -645,3 +645,47 @@ for lims_kit, labels in lims_kits2labels.items():
         )
 
         ont_label2dict[label] = label_dict
+
+
+# Build a reverse mapping from sequence to barcode info (for lookup by sequence)
+ont_seq2label: dict[str, dict] = {}
+for label, label_dict in ont_label2dict.items():
+    seq = label_dict["seq"]
+    # Store the barcode info keyed by sequence
+    # If multiple labels have the same sequence, keep the first one encountered
+    if seq not in ont_seq2label:
+        ont_seq2label[seq] = label_dict
+
+
+def get_barcode_info(barcode_value: str) -> dict:
+    """Get barcode info from label, sequence, or barcode name.
+
+    Handles multiple formats:
+    - Full label: "01_A1_NB01 (CACAAAGACACCGACAACTTTCTT)"
+    - Sequence only: "CACAAAGACACCGACAACTTTCTT"
+    - Barcode name: "NB01", "BC15", "16S15", etc.
+    - Partial label: "01_A1_NB01"
+    """
+    # Try as full label first
+    if barcode_value in ont_label2dict:
+        return ont_label2dict[barcode_value]
+
+    # Try as sequence
+    if barcode_value in ont_seq2label:
+        return ont_seq2label[barcode_value]
+
+    # Try to extract barcode name from partial label
+    # E.g., "01_A1_NB01" -> "NB01", or "01_A1_NB01 (seq)" -> "NB01"
+    barcode_name = barcode_value.split("_")[-1].split(" ")[0]
+
+    # Try as barcode name (e.g., "NB01", "BC15")
+    if barcode_name in ont_name2seq:
+        seq = ont_name2seq[barcode_name]
+        if seq in ont_seq2label:
+            return ont_seq2label[seq]
+
+    # If still not found, raise KeyError with helpful message
+    raise KeyError(
+        f"Barcode '{barcode_value}' not found in available barcodes. "
+        f"Expected one of: full label '01_A1_NB01 (...)', sequence, or barcode name 'NB01'."
+    )
