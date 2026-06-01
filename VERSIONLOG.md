@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260527.2
+
+Upgrade actions versions ahead of node.js 20 deprecation
+
 ## 20260527.1
 
 Add comprehensive ONT barcode support across scripts
