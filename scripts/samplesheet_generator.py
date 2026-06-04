@@ -43,7 +43,7 @@ def check_index_distance(data, log):
     lanes = {x["lane"] for x in data}
     for l in lanes:
         indexes = [
-            x.get("index_1", "") + x.get("index_2", "") for x in data if x["lane"] == l
+            x.get("index", "") + x.get("index2", "") for x in data if x["lane"] == l
         ]
         if not indexes or len(indexes) == 1:
             return None
@@ -149,11 +149,11 @@ def gen_NovaSeqXPlus_lane_data(pro):
                         out.location[0].name.replace(",", "").upper()
                     )
                     sp_obj["sw"] = out.location[1].replace(",", "")
-                    sp_obj["index_1"] = idxs[0].replace(",", "").upper()
+                    sp_obj["index"] = idxs[0].replace(",", "").upper()
                     if idxs[1]:
-                        sp_obj["index_2"] = idxs[1].replace(",", "").upper()
+                        sp_obj["index2"] = idxs[1].replace(",", "").upper()
                     else:
-                        sp_obj["index_2"] = ""
+                        sp_obj["index2"] = ""
                     data.append(sp_obj)
     header = "{}\n".format(",".join(header_ar))
     str_data = ""
@@ -164,8 +164,8 @@ def gen_NovaSeqXPlus_lane_data(pro):
             line["sample_id"],
             line["sample_name"],
             line["sample_ref"],
-            line["index_1"],
-            line["index_2"],
+            line["index"],
+            line["index2"],
             line["description"],
             line["control"],
             line["rc"],
@@ -255,14 +255,14 @@ def gen_Miseq_data(pro):
         "lane",
         "sample_name",
         "sample_name",
-        "ref",
-        "index_1",
-        "index_2",
+        "sample_ref",
+        "index",
+        "index2",
         "description",
         "control",
         "rc",
         "operator",
-        "description",
+        "sample_project",
     ]
     for out in pro.all_outputs():
         if out.type == "Analyte":
@@ -276,9 +276,9 @@ def gen_Miseq_data(pro):
                     if NGISAMPLE_PAT.findall(sample.name):
                         sp_obj["sample_id"] = f"Sample_{sample.name}".replace(",", "")
                         sp_obj["sample_name"] = sample.name.replace(",", "")
-                        sp_obj["description"] = sample.project.name.replace(
-                            ".", "__"
-                        ).replace(",", "")
+                        sp_obj["description"] = sp_obj["sample_project"] = (
+                            sample.project.name.replace(".", "__").replace(",", "")
+                        )
                         sp_obj["sample_ref"] = sample.project.udf.get(
                             "Reference genome", ""
                         ).replace(",", "")
@@ -310,7 +310,7 @@ def gen_Miseq_data(pro):
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["description"] = "Control"
+                        sp_obj["description"] = sp_obj["sample_project"] = "Control"
                         sp_obj["sample_ref"] = "Control"
                         sp_obj["rc"] = "0-0"
                         sp_obj["recipe"] = "0-0-0-0"
@@ -336,19 +336,20 @@ def gen_Miseq_data(pro):
                             sp_obj_sub["description"] = sp_obj["description"]
                             sp_obj_sub["sample_ref"] = sp_obj["sample_ref"]
                             sp_obj_sub["rc"] = sp_obj["rc"]
+                            sp_obj_sub["recipe"] = sp_obj["recipe"]
                             sp_obj_sub["control"] = sp_obj["control"]
                             sp_obj_sub["operator"] = sp_obj["operator"]
                             sp_obj_sub["flowcell_id"] = sp_obj["flowcell_id"]
                             sp_obj_sub["sw"] = sp_obj["sw"]
-                            sp_obj_sub["index_1"] = tenXidx.replace(",", "")
-                            sp_obj_sub["index_2"] = ""
+                            sp_obj_sub["index"] = tenXidx.replace(",", "")
+                            sp_obj_sub["index2"] = ""
                             data.append(sp_obj_sub)
                     # Case of 10X dual indexes
                     elif TENX_DUAL_PAT.findall(idxs[0]):
-                        sp_obj["index_1"] = Chromium_10X_indexes[
+                        sp_obj["index"] = Chromium_10X_indexes[
                             TENX_DUAL_PAT.findall(idxs[0])[0]
                         ][0].replace(",", "")
-                        sp_obj["index_2"] = "".join(
+                        sp_obj["index2"] = "".join(
                             reversed(
                                 [
                                     compl.get(b, b)
@@ -372,12 +373,13 @@ def gen_Miseq_data(pro):
                                 sp_obj_sub["description"] = sp_obj["description"]
                                 sp_obj_sub["sample_ref"] = sp_obj["sample_ref"]
                                 sp_obj_sub["rc"] = sp_obj["rc"]
+                                sp_obj_sub["recipe"] = sp_obj["recipe"]
                                 sp_obj_sub["control"] = sp_obj["control"]
                                 sp_obj_sub["operator"] = sp_obj["operator"]
                                 sp_obj_sub["flowcell_id"] = sp_obj["flowcell_id"]
                                 sp_obj_sub["sw"] = sp_obj["sw"]
-                                sp_obj_sub["index_1"] = i7_idx
-                                sp_obj_sub["index_2"] = "".join(
+                                sp_obj_sub["index"] = i7_idx
+                                sp_obj_sub["index2"] = "".join(
                                     reversed(
                                         [
                                             compl.get(b, b)
@@ -391,17 +393,17 @@ def gen_Miseq_data(pro):
                         idxs[0].replace(",", "").upper() == ""
                         and idxs[1].replace(",", "").upper() == ""
                     ):
-                        sp_obj["index_1"] = ""
-                        sp_obj["index_2"] = ""
+                        sp_obj["index"] = ""
+                        sp_obj["index2"] = ""
                         data.append(sp_obj)
                     # Ordinary indexes
                     else:
-                        sp_obj["index_1"] = idxs[0].replace(",", "").upper()
+                        sp_obj["index"] = idxs[0].replace(",", "").upper()
                         if idxs[1]:
                             if pj_type == "by user":
-                                sp_obj["index_2"] = idxs[1].replace(",", "").upper()
+                                sp_obj["index2"] = idxs[1].replace(",", "").upper()
                             else:
-                                sp_obj["index_2"] = "".join(
+                                sp_obj["index2"] = "".join(
                                     reversed(
                                         [
                                             compl.get(b, b)
@@ -410,16 +412,17 @@ def gen_Miseq_data(pro):
                                     )
                                 )
                         else:
-                            sp_obj["index_2"] = ""
+                            sp_obj["index2"] = ""
                         data.append(sp_obj)
 
-    if is_key_empty_in_all_dicts("index_1", data):
+    if is_key_empty_in_all_dicts("index", data):
         header_ar.remove("index")
-        key_order.remove("index_1")
+        key_order.remove("index")
+
         chem = "Default"
-    if is_key_empty_in_all_dicts("index_2", data):
+    if is_key_empty_in_all_dicts("index2", data):
         header_ar.remove("index2")
-        key_order.remove("index_2")
+        key_order.remove("index2")
         chem = "Default"
 
     header = "{}\n".format(",".join(header_ar))
@@ -518,10 +521,10 @@ def gen_Nextseq_lane_data(pro, rc_idx2=False):
                     )
 
                     sp_obj["sw"] = out.location[1].replace(",", "")
-                    sp_obj["index_1"] = idxs[0].replace(",", "")
+                    sp_obj["index"] = idxs[0].replace(",", "")
                     if idxs[1]:
                         if rc_idx2 and pj_type == "inhouse":
-                            sp_obj["index_2"] = "".join(
+                            sp_obj["index2"] = "".join(
                                 reversed(
                                     [
                                         compl.get(b, b)
@@ -530,9 +533,9 @@ def gen_Nextseq_lane_data(pro, rc_idx2=False):
                                 )
                             )
                         else:
-                            sp_obj["index_2"] = idxs[1].replace(",", "").upper()
+                            sp_obj["index2"] = idxs[1].replace(",", "").upper()
                     else:
-                        sp_obj["index_2"] = ""
+                        sp_obj["index2"] = ""
                     data.append(sp_obj)
     header = "{}\n".format(",".join(header_ar))
     str_data = ""
@@ -543,8 +546,8 @@ def gen_Nextseq_lane_data(pro, rc_idx2=False):
             line["sample_name"],
             line["sample_name"],
             line["sample_ref"],
-            line["index_1"],
-            line["index_2"],
+            line["index"],
+            line["index2"],
             line["description"],
             line["control"],
             line["rc"],
@@ -597,7 +600,7 @@ def find_barcode(sample_idxs, sample, process):
                     find_barcode(sample_idxs, sample, art.parent_process)
 
 
-def upload_to_genstat(data, metadata, fc_name, lims_uri):
+def upload_to_genstat(data, metadata, fc_name, lims_uri, log):
     config_genstat = "~/config/genstat-conf.yaml"
     with open(os.path.expanduser(config_genstat)) as config_file:
         config: dict[str, Any] = yaml.safe_load(config_file)
@@ -623,19 +626,23 @@ def upload_to_genstat(data, metadata, fc_name, lims_uri):
             f"Failed to upload samplesheet for {fc_name} to Genomics Status: {e}",
             "genomics-bioinfo@scilifelab.se",
         )
+        log.append(
+            f"Failed to upload samplesheet for {fc_name} to Genomics Status: {e}"
+        )
 
     if result.status_code != 201:
         msg = f"Samplesheet upload failed from {lims_uri} to {config['genomics-status-url']} for {fc_name}"
         msg += f"\nStatus code: {result.status_code}\nResponse: {result.text}\n"
         email_responsible(msg, "genomics-bioinfo@scilifelab.se")
+        log.append(msg)
 
 
 def test():
     log = []
     d = [
-        {"lane": 1, "index_1": "ATTT", "index_2": ""},
-        {"lane": 1, "index_1": "ATCTATCG", "index_2": ""},
-        {"lane": 1, "index_1": "ATCG", "index_2": "ATCG"},
+        {"lane": 1, "index": "ATTT", "index2": ""},
+        {"lane": 1, "index": "ATCTATCG", "index2": ""},
+        {"lane": 1, "index": "ATCG", "index2": "ATCG"},
     ]
     check_index_distance(d, log)
     print(log)
@@ -758,7 +765,7 @@ def main(lims, args):
                 f.write(content)
             os.chmod(f"{fc_name}.csv", 0o664)
             # Upload samplesheet to CouchDB through Genstat
-            run_setup = f"{process.udf.get('Read 1 Cycles')}_{process.udf.get('Index Read 1', 'x')}_{process.udf.get('Index Read 2', 'x')}_{process.udf.get('Read 2 Cycles')}"
+            run_setup = f"{process.udf.get('Read 1 Cycles', '0')}_{process.udf.get('Index Read 1', '0')}_{process.udf.get('Index Read 2', '0')}_{process.udf.get('Read 2 Cycles', '0')}"
 
             # Determine instrument type from process name
             instrument_type_mapping = {
@@ -778,7 +785,7 @@ def main(lims, args):
             }
             # Check that content exists to upload obj
             if content:
-                upload_to_genstat(obj, metadata, fc_name, lims.baseuri)
+                upload_to_genstat(obj, metadata, fc_name, lims.baseuri, log)
             for f in ss_art.files:
                 lims.request_session.delete(f.uri)
             lims.upload_new_file(ss_art, f"{fc_name}.csv")
