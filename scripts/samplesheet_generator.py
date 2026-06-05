@@ -109,9 +109,9 @@ def gen_NovaSeqXPlus_lane_data(pro):
                     if NGISAMPLE_PAT.findall(sample.name):
                         sp_obj["sample_id"] = f"Sample_{sample.name}".replace(",", "")
                         sp_obj["sample_name"] = sample.name.replace(",", "")
-                        sp_obj["description"] = sample.project.name.replace(
-                            ".", "__"
-                        ).replace(",", "")
+                        sp_obj["description"] = sp_obj["sample_project"] = (
+                            sample.project.name.replace(".", "__").replace(",", "")
+                        )
                         sp_obj["sample_ref"] = sample.project.udf.get(
                             "Reference genome", ""
                         ).replace(",", "")
@@ -137,7 +137,7 @@ def gen_NovaSeqXPlus_lane_data(pro):
                             .replace(".", "")
                             .replace(" ", "_")
                         )
-                        sp_obj["description"] = "Control"
+                        sp_obj["description"] = sp_obj["sample_project"] = "Control"
                         sp_obj["sample_ref"] = "Control"
                         sp_obj["rc"] = "0-0"
                         sp_obj["recipe"] = "0-0-0-0"
@@ -170,7 +170,7 @@ def gen_NovaSeqXPlus_lane_data(pro):
             line["control"],
             line["rc"],
             line["operator"],
-            line["description"],
+            line["sample_project"],
         ]
         str_data = str_data + ",".join(l_data) + "\n"
 
