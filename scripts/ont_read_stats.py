@@ -4,14 +4,13 @@ import logging
 from argparse import ArgumentParser
 from datetime import datetime as dt
 
-from couchdb.client import Database, Row, ViewResults
-from generate_minknow_samplesheet import get_pool_sample_label_mapping
+from ibmcloudant import cloudant_v1
 from genologics.config import BASEURI, PASSWORD, USERNAME
 from genologics.entities import Artifact, Process, Sample
 from genologics.lims import Lims
 from ont_send_reloading_info_to_db import get_ONT_db
 
-from data.ONT_barcodes import ont_label2dict
+from data.ONT_barcodes import get_barcode_info
 from scilifelab_epps.wrapper import epp_decorator
 
 DESC = """Assign metrics from ONT run onto samples in a LIMS demultiplexing step.
@@ -26,9 +25,8 @@ def main(args):
     process = Process(lims, id=args.pid)
 
     # Connect to database
-    db: Database = get_ONT_db()
-    barcodes_view: ViewResults = db.view("info/barcodes")
-    stats_view: ViewResults = db.view("info/all_stats")
+    client: cloudant_v1.CloudantV1
+    client, db_name = get_ONT_db()
 
     for library in process.all_inputs():
         # Use ONT run name to navigate database
@@ -39,18 +37,38 @@ def main(args):
 
         # Get sample-barcode linkage
         is_barcoded: bool = len(library.samples) > 1
-        sample2label: dict[str, str] = (
-            get_pool_sample_label_mapping(library) if is_barcoded else None
-        )
 
         # For both views, get the row corresponding to the current run
-        stats_row: Row = [row for row in stats_view.rows if run_name == row.key][0]
+        stats_rows: list[dict] = client.post_view(
+            db=db_name,
+            ddoc="info",
+            view="all_stats",
+            include_docs=False,
+            key=run_name,
+        ).get_result()["rows"]
+        if not stats_rows:
+            logging.error(
+                f"No stats entry found in database for run '{run_name}'. Skipping."
+            )
+            continue
+        stats_row: dict = stats_rows[0]
+
         if is_barcoded:
             logging.info("Library seems barcoded.")
-            barcodes_row: Row = [
-                row for row in barcodes_view.rows if run_name == row.key
-            ][0]
-            if not barcodes_row.value:
+            barcodes_rows: list[dict] = client.post_view(
+                db=db_name,
+                ddoc="info",
+                view="barcodes",
+                include_docs=False,
+                key=run_name,
+            ).get_result()["rows"]
+            if not barcodes_rows:
+                logging.error(
+                    "Run database entry does not appear to contain barcodes. Skipping."
+                )
+                continue
+            barcodes_row: dict = barcodes_rows[0]
+            if not barcodes_row.get("value"):
                 logging.error(
                     "Run database entry does not appear to contain barcodes. Skipping."
                 )
@@ -75,21 +93,21 @@ def main(args):
 
             # Get dict containing sequencing run metrics
             if is_barcoded:
-                label: str = sample2label[sample.name]
-                barcode_info: dict = ont_label2dict[label]
+                label: str = demux_art.reagent_labels[0]
+                barcode_info: dict = get_barcode_info(label)
                 barcode_num: int = barcode_info["num"]
                 barcode_generic_name: str = f"barcode{str(barcode_num).zfill(2)}"
                 logging.info(f"Using LIMS label '{label}' as '{barcode_generic_name}'.")
 
-                if not barcodes_row.value.get(barcode_generic_name):
+                if not barcodes_row["value"].get(barcode_generic_name):
                     logging.error(
                         f"Run database entry does not appear to contain data for {barcode_generic_name}. Skipping."
                     )
                     continue
-                metrics: dict = barcodes_row.value[barcode_generic_name]
+                metrics: dict = barcodes_row["value"][barcode_generic_name]
 
             else:
-                metrics: dict = stats_row.value
+                metrics: dict = stats_row["value"]
 
             # Parse and calculate values
             reads_pass = int(metrics.get("basecalled_pass_read_count", "0"))
