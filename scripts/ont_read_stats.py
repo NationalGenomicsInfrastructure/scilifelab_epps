@@ -4,10 +4,10 @@ import logging
 from argparse import ArgumentParser
 from datetime import datetime as dt
 
-from ibmcloudant import cloudant_v1
 from genologics.config import BASEURI, PASSWORD, USERNAME
-from genologics.entities import Artifact, Process, Sample
+from genologics.entities import Artifact, Process
 from genologics.lims import Lims
+from ibmcloudant import cloudant_v1
 from ont_send_reloading_info_to_db import get_ONT_db
 
 from data.ONT_barcodes import get_barcode_info
@@ -86,7 +86,6 @@ def main(args):
         logging.info(f"Handling {len(demux_arts)} demultiplexing artifacts.")
 
         for demux_art in demux_arts:
-            sample: Sample = demux_art.samples[0]
             logging.info(
                 f"Processing demultiplexing artifact '{demux_art.name}' ({demux_art.id})."
             )
@@ -121,6 +120,7 @@ def main(args):
             demux_art.udf["Yield PF (Gb)"] = gb_pass
             demux_art.udf["%PF"] = pf_pc
             demux_art.udf["Avg. Read Length"] = avg_len
+            demux_art.udf["Include reads"] = "YES"
 
             # Publish metrics
             demux_art.put()
