@@ -1,5 +1,17 @@
 # Scilifelab_epps Version Log
 
+## 20260609.1
+
+Fix ONT workflow: migrate ont_read_stats.py to IBM Cloudant v1 API and fix ONT reads aggregation in readscount.py
+
+## 20260601.1
+
+Fix bug in line splitting
+
+## 20260527.2
+
+Upgrade actions versions ahead of node.js 20 deprecation
+
 ## 20260527.1
 
 Add comprehensive ONT barcode support across scripts
