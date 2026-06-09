@@ -22,6 +22,7 @@ TIMESTAMP: str = dt.now().strftime("%y%m%d_%H%M%S")
 DEMULTIPLEX_STEPS = [
     "Bcl Conversion & Demultiplexing (Illumina SBS) 4.0",
     "ONT Finish Sequencing v3",
+    "ONT Finish Sequencing v2.1",
     "Bcl Conversion & Demultiplexing (AVITI) v1.0",
 ]
 SEQUENCING_STEPS = [
