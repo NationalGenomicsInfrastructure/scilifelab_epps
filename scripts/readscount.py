@@ -22,6 +22,7 @@ TIMESTAMP: str = dt.now().strftime("%y%m%d_%H%M%S")
 DEMULTIPLEX_STEPS = [
     "Bcl Conversion & Demultiplexing (Illumina SBS) 4.0",
     "ONT Finish Sequencing v3",
+    "ONT Finish Sequencing v2.1",
     "Bcl Conversion & Demultiplexing (AVITI) v1.0",
 ]
 SEQUENCING_STEPS = [
@@ -158,12 +159,26 @@ def sum_reads(sample, summary):
     if sample.name not in summary:
         summary[sample.name] = {}
 
-    # Look for artifacts matching the sample name and expected analyte name in the demultiplexing processeses
-    demux_arts = lims.get_artifacts(
-        sample_name=sample.name,
-        process_type=DEMULTIPLEX_STEPS,
-        name=f"{sample.name} (FASTQ reads)",
-    )
+    # Look for artifacts matching the sample name in the demultiplexing processes.
+    # ONT demux artifacts are named "{sample} (FASTQ reads) {barcode}" so the exact-match
+    # name filter cannot be used; query without name and filter by substring instead.
+    ont_steps = [s for s in DEMULTIPLEX_STEPS if s.startswith("ONT")]
+    non_ont_steps = [s for s in DEMULTIPLEX_STEPS if not s.startswith("ONT")]
+
+    demux_arts = []
+    if non_ont_steps:
+        demux_arts += lims.get_artifacts(
+            sample_name=sample.name,
+            process_type=non_ont_steps,
+            name=f"{sample.name} (FASTQ reads)",
+        )
+    if ont_steps:
+        ont_arts = lims.get_artifacts(
+            sample_name=sample.name,
+            process_type=ont_steps,
+        )
+        demux_arts += [art for art in ont_arts if "(FASTQ reads)" in art.name]
+
     if not demux_arts:
         if sample_has_status(sample, "Aborted"):
             logging.info(

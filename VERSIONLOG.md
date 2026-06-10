@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260609.1
+
+Fix ONT workflow: migrate ont_read_stats.py to IBM Cloudant v1 API and fix ONT reads aggregation in readscount.py
+
 ## 20260601.1
 
 Fix bug in line splitting
