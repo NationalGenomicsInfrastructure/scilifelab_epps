@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260703.2
+
+Add expected clusters for 5B chemistry
+
 ## 20260703.1
 
 Add 5B to valid chemistries
