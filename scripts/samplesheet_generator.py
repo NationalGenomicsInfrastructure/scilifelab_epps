@@ -784,7 +784,7 @@ def main(lims, args):
                 "run_mode": process.udf.get("Run Mode", ""),
             }
             # Check that content exists to upload obj
-            if instrument_type=="MiSeq i100" and content:
+            if instrument_type == "MiSeq i100" and content:
                 upload_to_genstat(obj, metadata, fc_name, lims.baseuri, log)
             for f in ss_art.files:
                 lims.request_session.delete(f.uri)
