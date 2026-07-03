@@ -44,6 +44,10 @@ Bug fix for + symbol in miseq flowcell id and add several lims steps for comment
 
 Fix: Add Miseq i100 for readcount and generate a correct FA driver file for pools.
 
+## 20260219.1
+
+Update sample_generator to upload samplesheets to a genomics-status api
+
 ## 20260211.1
 
 Enable the integration of MiSeq i100 into LIMS
