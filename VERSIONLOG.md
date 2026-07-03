@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260703.1
+
+Add 5B to valid chemistries
+
 ## 20260609.1
 
 Fix ONT workflow: migrate ont_read_stats.py to IBM Cloudant v1 API and fix ONT reads aggregation in readscount.py
