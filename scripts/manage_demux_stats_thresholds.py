@@ -36,6 +36,7 @@ class Thresholds:
             "NextSeq 2000 P1",
             "NextSeq 2000 P2",
             "NextSeq 2000 P3",
+            "5B",
             "10B",
             "1.5B",
             "25B",
