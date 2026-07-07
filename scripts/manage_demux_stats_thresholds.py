@@ -36,6 +36,7 @@ class Thresholds:
             "NextSeq 2000 P1",
             "NextSeq 2000 P2",
             "NextSeq 2000 P3",
+            "5B",
             "10B",
             "1.5B",
             "25B",
@@ -164,7 +165,9 @@ class Thresholds:
             elif self.chemistry == "S4":
                 self.exp_lane_clust = 2000e6
         elif self.instrument == "NovaSeqXPlus":
-            if self.chemistry == "10B":
+            if self.chemistry == "5B":
+                self.exp_lane_clust = 600e6
+            elif self.chemistry == "10B":
                 self.exp_lane_clust = 1200e6
             elif self.chemistry == "1.5B":
                 self.exp_lane_clust = 750e6
