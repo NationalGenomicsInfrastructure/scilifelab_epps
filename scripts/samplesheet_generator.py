@@ -720,12 +720,13 @@ def main(lims, args):
                     log.append(str(e))
 
         if not args.test:
+            fc_name = None
             for out in process.all_outputs():
                 if out.name == "Scilifelab SampleSheet":
                     ss_art = out
                 elif out.name == "Scilifelab Log":
                     log_art = out
-                elif out.type == "Analyte":
+                elif out.type == "Analyte" and not fc_name:
                     if process.type.name == "Load to Flowcell (NextSeq v1.0)":
                         fc_name = (
                             process.udf["Flowcell Series Number"].upper()
@@ -742,24 +743,25 @@ def main(lims, args):
 
                     else:
                         fc_name = out.location[0].name.upper()
-                elif process.type.name in [
-                    "MinION QC",
-                    "Load Sample and Sequencing (MinION) 1.0",
-                ]:
-                    run_type = "QC" if process.type.name == "MinION QC" else "DELIVERY"
-                    fc_name = (
-                        run_type
-                        + "_"
-                        + process.udf["Nanopore Kit"]
-                        + "_"
-                        + process.udf["Flowcell ID"].upper()
-                        + "_"
-                        + "Samplesheet"
-                        + "_"
-                        + process.id
-                    )
-                else:
-                    fc_name = "Samplesheet" + "_" + process.id
+
+            if process.type.name in [
+                "MinION QC",
+                "Load Sample and Sequencing (MinION) 1.0",
+            ]:
+                run_type = "QC" if process.type.name == "MinION QC" else "DELIVERY"
+                fc_name = (
+                    run_type
+                    + "_"
+                    + process.udf["Nanopore Kit"]
+                    + "_"
+                    + process.udf["Flowcell ID"].upper()
+                    + "_"
+                    + "Samplesheet"
+                    + "_"
+                    + process.id
+                )
+            if not fc_name:
+                fc_name = "Samplesheet" + "_" + process.id
 
             with open(f"{fc_name}.csv", "w", 0o664) as f:
                 f.write(content)
