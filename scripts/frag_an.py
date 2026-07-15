@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import sys
 from argparse import ArgumentParser
 
@@ -8,6 +9,13 @@ from genologics.entities import Process
 from genologics.lims import Lims
 
 DESC = """EPP diluting the concentration of samples in the fragment analyzer step"""
+
+
+def parse_range_bp(range_value):
+    bp_values = re.findall(r"\d+(?:\.\d+)?", range_value)
+    if len(bp_values) < 2:
+        raise ValueError("Could not parse Range value '{}'".format(range_value))
+    return int(round(float(bp_values[0]))), int(round(float(bp_values[1])))
 
 
 def main(lims, args):
@@ -77,12 +85,9 @@ def main(lims, args):
                             base_concentration = io2[1]["uri"].udf["Concentration"]
                             base_conc_unit = io2[1]["uri"].udf["Conc. Units"]
             try:
-                io[1]["uri"].udf["Min Size (bp)"] = int(
-                    frag_data[well]["Range"].split("to")[0].split("bp")[0].strip()
-                )
-                io[1]["uri"].udf["Max Size (bp)"] = int(
-                    frag_data[well]["Range"].split("to")[1].split("bp")[0].strip()
-                )
+                min_size_bp, max_size_bp = parse_range_bp(frag_data[well]["Range"])
+                io[1]["uri"].udf["Min Size (bp)"] = min_size_bp
+                io[1]["uri"].udf["Max Size (bp)"] = max_size_bp
                 if "Ratio (%)" not in io[1]["uri"].udf:
                     io[1]["uri"].udf["Ratio (%)"] = float(frag_data[well]["% Total"])
                 io[1]["uri"].udf["Size (bp)"] = int(frag_data[well]["Avg. Size"])
