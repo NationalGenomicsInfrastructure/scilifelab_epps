@@ -122,7 +122,7 @@ def main(lims, args, epp_logger):
             # because frag_an_driver_gen.py uses output.name.split("Fragment Analyzer ")[1].
             fa_prefix = "Fragment Analyzer "
             if o_a.name.startswith(fa_prefix):
-                sample_token = o_a.name[len(fa_prefix):]
+                sample_token = o_a.name[len(fa_prefix) :]
             else:
                 sample_token = o_a.name
             expected_sample = normalize_sample_name(sample_token)
