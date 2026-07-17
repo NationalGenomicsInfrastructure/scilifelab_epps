@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 from email.message import Message
 from email.mime.text import MIMEText
 from io import BytesIO
+from typing import TypedDict, cast
 
 import yaml
 from genologics.config import BASEURI, PASSWORD, USERNAME
@@ -35,6 +36,17 @@ TENX_DUAL_PAT = re.compile("SI-(?:TT|NT|NN|TN|TS)-[A-H][1-9][0-2]?")
 SMARTSEQ_PAT = re.compile("SMARTSEQ[1-9]?-[1-9][0-9]?[A-P]")
 
 
+class IndexPair(TypedDict):
+    idx1: str
+    idx2: str
+
+
+class WellData(TypedDict):
+    count: int
+    indexes: list[IndexPair]
+    index_length: set[int]
+
+
 def get_index_format_error(index: str) -> str | None:
     if TENX_SINGLE_PAT.fullmatch(index):
         return None
@@ -60,7 +72,7 @@ def get_index_format_error(index: str) -> str | None:
 def email_responsible(
     message: str,
     resp_email: str,
-    subject: str | None = None,
+    subject: str,
 ) -> None:
     msg: Message
     body = "Samplesheet validation Errors: \n" + message
@@ -99,34 +111,36 @@ def my_distance(idx_a: str, idx_b: str) -> int:
 
 def parse_library_info_sheet(
     worksheet: Worksheet, proj_id: str
-) -> tuple[dict, set[str]]:
-    data = {}
-    message = set()
+) -> tuple[dict[str, WellData], set[str]]:
+    data: dict[str, WellData] = {}
+    message: set[str] = set()
     for row in worksheet.iter_rows(
         min_row=20, min_col=13, max_col=16, values_only=True
     ):
-        sample_name = row[0]
-        if sample_name is None:
+        sample_name = cast(str | None, row[0])
+        well = cast(str | None, row[1])
+        index = cast(str | None, row[3])
+        if sample_name is None or well is None:
             continue
         message.update(verify_samplename(sample_name, proj_id))
-        well = row[1]
-        index = row[3]
         if well not in data:
             data[well] = {"count": 1, "indexes": [], "index_length": set()}
+            # Initialize WellData TypedDict correctly
         else:
             data[well]["count"] += 1
-            data[well]["index_length"].add(len(index))
-            if (
-                len(data[well]["index_length"]) > 1
-            ):  # Assuming first index has the correct length
-                data[well]["index_length"].remove(
-                    len(index)
-                )  # Remove the different length to avoid multiple warnings for the same issue
-                common_index = data[well]["index_length"].pop()
-                message.add(
-                    f"INDEX LENGTH WARNING: Multiple index lengths noticed in pool {well} for Sample {sample_name}, length {len(index)} is different from {common_index}"
-                )
-                data[well]["index_length"].add(common_index)
+            if index is not None:
+                data[well]["index_length"].add(len(index))
+                if (
+                    len(data[well]["index_length"]) > 1
+                ):  # Assuming first index has the correct length
+                    data[well]["index_length"].remove(
+                        len(index)
+                    )  # Remove the different length to avoid multiple warnings for the same issue
+                    common_index = data[well]["index_length"].pop()
+                    message.add(
+                        f"INDEX LENGTH WARNING: Multiple index lengths noticed in pool {well} for Sample {sample_name}, length {len(index)} is different from {common_index}"
+                    )
+                    data[well]["index_length"].add(common_index)
 
         if index == "" or index is None:
             message.add(
@@ -156,7 +170,7 @@ def parse_library_info_sheet(
                     else:
                         try:
                             idxs = IDX_PAT.findall(index)[0]
-                            curr_idx = {
+                            curr_idx: IndexPair = {
                                 "idx1": idxs[0],
                                 "idx2": idxs[1] if len(idxs) > 1 else "",
                             }
