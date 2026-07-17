@@ -1,5 +1,41 @@
 # Scilifelab_epps Version Log
 
+## 20260703.2
+
+Add expected clusters for 5B chemistry
+
+## 20260703.1
+
+Add 5B to valid chemistries
+
+## 20260609.1
+
+Fix ONT workflow: migrate ont_read_stats.py to IBM Cloudant v1 API and fix ONT reads aggregation in readscount.py
+
+## 20260601.1
+
+Fix bug in line splitting
+
+## 20260527.2
+
+Upgrade actions versions ahead of node.js 20 deprecation
+
+## 20260527.1
+
+Add comprehensive ONT barcode support across scripts
+
+## 20260521.1
+
+Add NextSeq Load to Flowcell to runningnotes_from_sequencing
+
+## 20260520.1
+
+Add index length to error when encountering differing index lengths
+
+## 20260506.1
+
+Reverse complement index 2 for MiSeq i100 for in-house libraries and bug fix for + symbol in manage demux stats in bcl conversion step.
+
 ## 20260330.1
 
 Bug fix for + symbol in miseq flowcell id and add several lims steps for comments to running notes.
@@ -11,6 +47,10 @@ Add functions to project validator
 ## 20260320.1
 
 Fix: Add Miseq i100 for readcount and generate a correct FA driver file for pools.
+
+## 20260219.1
+
+Update sample_generator to upload samplesheets to a genomics-status api
 
 ## 20260211.1
 
@@ -31,6 +71,10 @@ Set default to false for file removal in file upload, pass parameter as false in
 ## 20251105.1
 
 Fix bugs in ONT couchdb connections
+
+## 20250915.1
+
+Remove ONT EPPs to be replaced by UDF formulas, add ONT demux stats EPP, tweak UDF formulas EPP to be less upset about missing values.
 
 ## 20251104.1
 

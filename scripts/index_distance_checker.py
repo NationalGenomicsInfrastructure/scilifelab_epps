@@ -12,6 +12,7 @@ from genologics.entities import Process
 from genologics.lims import Lims
 
 from data.Chromium_10X_indexes import Chromium_10X_indexes
+from data.ONT_barcodes import get_barcode_info
 from scilifelab_epps.epp import attach_file
 
 SMARTSEQ3_indexes_json = (
@@ -34,6 +35,9 @@ VALIDBASES_PAT = re.compile(r"^[ATCGN\-]+$")
 TENX_SINGLE_PAT = re.compile("SI-(?:GA|NA)-[A-H][1-9][0-2]?")
 TENX_DUAL_PAT = re.compile("SI-(?:TT|NT|NN|TN|TS)-[A-H][1-9][0-2]?")
 SMARTSEQ_PAT = re.compile("SMARTSEQ[1-9]?-[1-9][0-9]?[A-P]")
+ONT_PAT = re.compile(
+    r"^(?:NB|BC|RB|BP|RLB|16S)\d{1,2}[A-Z]?$"
+)  # Matches NB01, BC15, RB01, 16S05, etc.
 NGISAMPLE_PAT = re.compile("P[0-9]+_[0-9]+")
 
 
@@ -48,6 +52,10 @@ def verify_indexes(data):
         idx_length = set()
         for i, sample_a in enumerate(subset[:-1]):
             idx_a = sample_a.get("idx1", "") + "-" + sample_a.get("idx2", "")
+            if len(idx_a) > 1 and len(idx_a) not in idx_length and len(idx_length) > 0:
+                message.append(
+                    f"INDEX WARNING: Sample {sample_a.get('sn', '')} in pool {p} has an index of unexpected length: {idx_a}"
+                )
             idx_length.add(len(idx_a))
             if sample_a.get("idx1", "") == "" and sample_a.get("idx2", "") == "":
                 message.append(
@@ -307,6 +315,24 @@ def prepare_index_table(process):
                                     sp_obj_sub["idx1"] = i7_idx
                                     sp_obj_sub["idx2"] = i5_idx
                                     data.append(sp_obj_sub)
+                        elif ONT_PAT.findall(idxs[0]):
+                            # ONT barcode - look up sequence from ONT_barcodes.py
+                            ont_barcode_name = ONT_PAT.findall(idxs[0])[0]
+                            sp_obj["pool"] = pool_name
+                            sp_obj["proj_id"] = proj_id
+                            sp_obj["sn"] = sample.name.replace(",", "")
+                            sp_obj["idx_name"] = ont_barcode_name
+                            try:
+                                barcode_info = get_barcode_info(ont_barcode_name)
+                                sp_obj["idx1"] = barcode_info["seq"]
+                            except KeyError:
+                                # Barcode not found in ONT database
+                                message.append(
+                                    f"ONT barcode '{ont_barcode_name}' not found in barcode database for sample {sample.name}"
+                                )
+                                sp_obj["idx1"] = ""
+                            sp_obj["idx2"] = ""
+                            data.append(sp_obj)
                         else:
                             sp_obj["pool"] = pool_name
                             sp_obj["proj_id"] = proj_id
@@ -364,6 +390,7 @@ def find_barcode(sample_idxs, sample, process):
                                         or TENX_SINGLE_PAT.findall(reagent_label_name)
                                         or TENX_DUAL_PAT.findall(reagent_label_name)
                                         or SMARTSEQ_PAT.findall(reagent_label_name)
+                                        or ONT_PAT.findall(reagent_label_name)
                                     )
                                 )
                             ):
@@ -376,6 +403,7 @@ def find_barcode(sample_idxs, sample, process):
                     TENX_SINGLE_PAT.findall(reagent_label_name)
                     or TENX_DUAL_PAT.findall(reagent_label_name)
                     or SMARTSEQ_PAT.findall(reagent_label_name)
+                    or ONT_PAT.findall(reagent_label_name)
                 )
                 if idxs:
                     # Put in tuple with empty string as second index to
