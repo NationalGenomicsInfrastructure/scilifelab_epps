@@ -586,7 +586,11 @@ def gen_Nextseq_lane_data(pro):
                     sp_obj["op"] = pro.technician.name.replace(" ", "_").replace(
                         ",", ""
                     )
-                    sp_obj["fc"] = out.location[0].name.replace(",", "").upper()
+                    # Add flowcell ID correction here
+                    sp_obj["fc"] = (
+                        out.location[0].name.replace(",", "").upper().replace("+", "-")
+                    )
+
                     sp_obj["sw"] = out.location[1].replace(",", "")
                     sp_obj["idx1"] = idxs[0].replace(",", "")
                     if idxs[1]:
@@ -736,11 +740,13 @@ def main(lims, args):
         elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
             (content, obj) = gen_Nextseq_lane_data(process)
             check_index_distance(obj, log)
+            # Add flowcell ID correction here
             miseqi100_fc = (
-                process.udf["Flowcell Series Number"]
-                if process.udf["Flowcell Series Number"]
+                process.udf.get("Flowcell Series Number")
+                if process.udf.get("Flowcell Series Number")
                 else obj[0]["fc"]
-            )
+            ).replace("+", "-")
+
             if os.path.exists(f"/srv/ngi-nas-ns/samplesheets/MiSeqi100/{thisyear}"):
                 try:
                     with open(
@@ -764,6 +770,14 @@ def main(lims, args):
                             if process.udf["Flowcell Series Number"]
                             else out.location[0].name.upper()
                         )
+                    # Add flowcell ID correction here
+                    elif process.type.name == "Load to Flowcell (MiSeq i100) v1.0":
+                        fc_name = (
+                            process.udf["Flowcell Series Number"].upper()
+                            if process.udf.get("Flowcell Series Number")
+                            else out.location[0].name.upper()
+                        ).replace("+", "-")
+
                     else:
                         fc_name = out.location[0].name.upper()
                 elif process.type.name in [

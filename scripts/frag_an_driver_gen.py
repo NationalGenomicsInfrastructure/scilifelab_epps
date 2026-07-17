@@ -23,7 +23,10 @@ def main(lims, args):
                 location_ar = output.location[1].split(":")
                 valid_cols.add(location_ar[0])
                 # idx = (ord(location_ar[0])-65)*12 + int(location_ar[1])-1
-                ar_driver[output.location[1].replace(":", "")] = output.samples[0].name
+                # ar_driver[output.location[1].replace(":", "")] = output.samples[0].name
+                ar_driver[output.location[1].replace(":", "")] = output.name.split(
+                    "Fragment Analyzer "
+                )[1]
 
     col_idx = -1
     for column in sorted(list(valid_cols)):
