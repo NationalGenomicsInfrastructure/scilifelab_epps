@@ -47,6 +47,11 @@ class WellData(TypedDict):
     index_length: set[int]
 
 
+def get_header_columns(worksheet: Worksheet) -> dict[str, int]:
+    header_row = list(worksheet.iter_rows(min_row=17, max_row=17, values_only=True))[0]
+    return {header: idx for idx, header in enumerate(header_row) if header is not None}
+
+
 def get_index_format_error(index: str) -> str | None:
     if TENX_SINGLE_PAT.fullmatch(index):
         return None
@@ -114,12 +119,14 @@ def parse_library_info_sheet(
 ) -> tuple[dict[str, WellData], set[str]]:
     data: dict[str, WellData] = {}
     message: set[str] = set()
-    for row in worksheet.iter_rows(
-        min_row=20, min_col=13, max_col=16, values_only=True
-    ):
-        sample_name = cast(str | None, row[0])
-        well = cast(str | None, row[1])
-        index = cast(str | None, row[3])
+    headers = get_header_columns(worksheet)
+    sample_name_col = headers.get("Sample/Name")
+    well_col = headers.get("UDF/Pooling")
+    index_col = headers.get("Sample/Reagent Label")
+    for row in worksheet.iter_rows(min_row=20, values_only=True):
+        sample_name = cast(str | None, row[sample_name_col])
+        well = cast(str | None, row[well_col])
+        index = cast(str | None, row[index_col])
         if sample_name is None or well is None:
             continue
         message.update(verify_samplename(sample_name, proj_id))
@@ -262,13 +269,13 @@ def main(lims: Lims, pid: str, auto: bool) -> None:
         else:
             sys.stderr.write("; ".join(message))
     else:
-        print("No issue detected with indexes or placement", file=sys.stderr)
+        print("No issue detected with indexes or placement")
 
     with open("index_checker.log", "w") as logContext:
         logContext.write("\n".join(message))
     # Throw red warning message when it is not automatically run
     if not auto and not message:
-        sys.exit(2)
+        sys.exit(0)
 
 
 if __name__ == "__main__":
