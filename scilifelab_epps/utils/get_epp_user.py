@@ -2,10 +2,12 @@
 
 import psycopg2
 import yaml
-from genologics.entities import Researcher
+from genologics.entities import Lims, Researcher
 
 
-def get_epp_user(lims, procid):
+def get_epp_user(
+    lims: Lims, procid: str | None = None, project_id: str | None = None
+) -> Researcher:
     """
     Get the EPP user from the database.
     Returns:
@@ -20,17 +22,30 @@ def get_epp_user(lims, procid):
     # the same rowpk in auditchangelog. This rowpk maps to the externalprogramstatusid in the table externalprogramstatus.
     # So by checking for 'EPP_CONSUME_NEXT_REQUEST' and the process thats currently running we should be able to get
     # the user that launched the EPP.
-    query = f"""--sql
+    query = """--sql
         SELECT ps.researcherid
         FROM principals ps
         JOIN externalprogramstatus eps ON ps.principalid = eps.ownerid
         JOIN auditchangelog acl ON acl.rowpk = CAST(eps.externalprogramstatusid AS TEXT)
         AND acl.tablename = 'externalprogramstatus'
         JOIN auditeventlog ael ON ael.eventid = acl.eventid
+    """
+    if project_id:
+        query += """--sql
+        JOIN project_programstatus_map ppm ON ppm.externalprogramstatusid = eps.externalprogramstatusid
+        """
+    query += """--sql
         WHERE ael.eventtype ='EPP_CONSUME_NEXT_REQUEST'
-        AND eps.processid = {procid.split("-")[1]}
-        AND eps.status = 'RUNNING';
+        AND eps.status = 'RUNNING'
      """
+    if procid:
+        query += f"""--sql
+        AND eps.processid = {procid.split("-")[1]};
+        """
+    if project_id:
+        query += f"""--sql
+        AND ppm.projectid = {project_id.split("P")[1]};
+        """
 
     with psycopg2.connect(
         user=config["username"],

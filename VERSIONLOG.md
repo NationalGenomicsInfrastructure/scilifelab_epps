@@ -40,6 +40,10 @@ Reverse complement index 2 for MiSeq i100 for in-house libraries and bug fix for
 
 Bug fix for + symbol in miseq flowcell id and add several lims steps for comments to running notes.
 
+## 20260320.2
+
+Add functions to project validator
+
 ## 20260320.1
 
 Fix: Add Miseq i100 for readcount and generate a correct FA driver file for pools.

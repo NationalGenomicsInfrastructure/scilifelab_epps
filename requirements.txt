@@ -8,6 +8,7 @@ jwcrypto
 Markdown
 numpy
 oauth2client
+openpyxl
 pandas
 protobuf
 psycopg2
