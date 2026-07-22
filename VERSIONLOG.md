@@ -1,5 +1,13 @@
 # Scilifelab_epps Version Log
 
+## 20260703.2
+
+Add expected clusters for 5B chemistry
+
+## 20260703.1
+
+Add 5B to valid chemistries
+
 ## 20260609.1
 
 Fix ONT workflow: migrate ont_read_stats.py to IBM Cloudant v1 API and fix ONT reads aggregation in readscount.py
@@ -35,6 +43,10 @@ Bug fix for + symbol in miseq flowcell id and add several lims steps for comment
 ## 20260320.1
 
 Fix: Add Miseq i100 for readcount and generate a correct FA driver file for pools.
+
+## 20260219.1
+
+Update sample_generator to upload samplesheets to a genomics-status api
 
 ## 20260211.1
 
