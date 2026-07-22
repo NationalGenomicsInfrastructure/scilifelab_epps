@@ -27,6 +27,7 @@ def categorization(process_name):
         "Aggregate QC (Library Validation) 4.0": "Workset",
         "Aggregate QC (RNA) 4.0": "Workset",
         "Aggregate QC (Library Pool QC) v1.0": "",
+        "Aggregate QC (CytAssist)": "",
         "Aliquot Libraries for Hybridization (SS XT)": "",
         "Aliquot Libraries for Pooling (Small RNA)": "",
         "Aliquot Samples for Caliper/Bioanalyzer": "Workset",
