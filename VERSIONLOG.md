@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260722.1
+
+Add the step Aggregate QC (CytAssist) to the categories list.
+
 ## 20260703.2
 
 Add expected clusters for 5B chemistry
