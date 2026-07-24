@@ -14,7 +14,7 @@ DESC = """EPP diluting the concentration of samples in the fragment analyzer ste
 def parse_range_bp(range_value):
     bp_values = re.findall(r"\d+(?:\.\d+)?", range_value)
     if len(bp_values) < 2:
-        raise ValueError("Could not parse Range value '{}'".format(range_value))
+        raise ValueError(f"Could not parse Range value '{range_value}'")
     return int(round(float(bp_values[0]))), int(round(float(bp_values[1])))
 
 
