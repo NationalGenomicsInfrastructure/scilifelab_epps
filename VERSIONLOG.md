@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260724.1
+
+Fixing FA attachment files and handling decimal range values due to the FA software version update.
+
 ## 20260722.1
 
 Add the step Aggregate QC (CytAssist) to the categories list.
