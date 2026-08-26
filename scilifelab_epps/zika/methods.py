@@ -658,16 +658,38 @@ def norm(
 
         df = zika.utils.fetch_sample_data(currentStep, to_fetch)
 
+        # Cast numeric fields and skip inputs that cannot be normalized.
+        # This keeps hard validation for valid samples while allowing controls
+        # without source metrics to be ignored instead of crashing the step.
+        for numeric_col in ["conc", "vol", "target_amt", "target_vol"]:
+            df[numeric_col] = pd.to_numeric(df[numeric_col], errors="coerce")
+
+        invalid_rows = (
+            df.conc.isna()
+            | df.vol.isna()
+            | df.target_amt.isna()
+            | df.target_vol.isna()
+            | (df.vol <= well_dead_vol)
+        )
+        if invalid_rows.any():
+            skipped = df.loc[invalid_rows, ["sample_name", "conc", "vol"]].copy()
+            for _, skipped_row in skipped.iterrows():
+                log.append(
+                    f"INFO: Skipping sample {skipped_row.sample_name} due to missing/insufficient source metrics "
+                    f"(conc={skipped_row.conc}, vol={skipped_row.vol} uL; minimum required source volume is {well_dead_vol} uL)"
+                )
+            df = df.loc[~invalid_rows].copy()
+
+        assert not df.empty, (
+            "No valid samples left after filtering missing/insufficient source metrics"
+        )
+
         conc_unit = "ng/ul" if use_customer_metrics else df.conc_units[0]
         amt_unit = "ng" if conc_unit == "ng/ul" else "fmol"
 
         # Assertions
         assert all(df.target_vol <= well_max_vol), (
             f"All target volumes must be at or below {well_max_vol} uL"
-        )
-
-        assert all(df.vol > well_dead_vol), (
-            f"The minimum required source volume is {well_dead_vol} ul"
         )
         df["full_vol"] = df.vol.copy()
         df.loc[:, "vol"] = df.vol - well_dead_vol
