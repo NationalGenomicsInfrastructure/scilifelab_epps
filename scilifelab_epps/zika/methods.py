@@ -669,14 +669,19 @@ def norm(
             | df.vol.isna()
             | df.target_amt.isna()
             | df.target_vol.isna()
+            | (df.conc <= 0)
+            | (df.target_amt <= 0)
+            | (df.target_vol <= 0)
             | (df.vol <= well_dead_vol)
         )
         if invalid_rows.any():
-            skipped = df.loc[invalid_rows, ["sample_name", "conc", "vol"]].copy()
+            skipped = df.loc[
+                invalid_rows, ["sample_name", "conc", "vol", "target_amt", "target_vol"]
+            ].copy()
             for _, skipped_row in skipped.iterrows():
                 log.append(
                     f"INFO: Skipping sample {skipped_row.sample_name} due to missing/insufficient source metrics "
-                    f"(conc={skipped_row.conc}, vol={skipped_row.vol} uL; minimum required source volume is {well_dead_vol} uL)"
+                    f"(conc={skipped_row.conc}, vol={skipped_row.vol} uL, target_amt={skipped_row.target_amt}, target_vol={skipped_row.target_vol} uL; minimum required source volume is {well_dead_vol} uL)"
                 )
             df = df.loc[~invalid_rows].copy()
 
