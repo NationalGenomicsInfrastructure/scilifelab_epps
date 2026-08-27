@@ -685,6 +685,7 @@ def norm(
                     f"(conc={skipped_row.conc}, vol={skipped_row.vol} uL, target_amt={skipped_row.target_amt}, target_vol={skipped_row.target_vol} uL; minimum required source volume is {well_dead_vol} uL)"
                 )
             df = df.loc[~invalid_rows].copy()
+            df = df.reset_index(drop=True)
 
         assert not df.empty, (
             "No valid samples left after filtering missing/insufficient source metrics"
