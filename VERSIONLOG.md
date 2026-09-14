@@ -4,6 +4,10 @@
 
 Improve Zika normalization robustness by skipping invalid source metrics with warning logs, add multi-source QIAseq handling in bravo_csv, and support controlled multi-plate deck setup.
 
+## 20260902.1
+
+Refactor zebra_barcodes script and update the CUPS server it uses.
+
 ## 20260826.1
 
 Clamp negative concentration UDF values to 0 before amount calculation in qc_amount_calculation.py, logging a warning for each affected sample.
