@@ -218,6 +218,9 @@ class EppLogger:
             for line in buf.rstrip().splitlines():
                 self.logger.log(self.log_level, line.rstrip())
 
+         # https://stackoverflow.com/questions/44874064/custom-sys-stdout-with-flush
+         # https://stackoverflow.com/questions/11124093/redirect-python-print-output-to-logger
+         # https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/main/api_server.py
         def flush(self):
             if self.stream and hasattr(self.stream, "flush"):
                 self.stream.flush()
