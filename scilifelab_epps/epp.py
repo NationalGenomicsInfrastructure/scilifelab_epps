@@ -218,6 +218,10 @@ class EppLogger:
             for line in buf.rstrip().splitlines():
                 self.logger.log(self.log_level, line.rstrip())
 
+        def flush(self):
+            if self.stream and hasattr(self.stream, "flush"):
+                self.stream.flush()
+
 
 class ReadResultFiles:
     """Class to read pars different kinds of result files from a process.
