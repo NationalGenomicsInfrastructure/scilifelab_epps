@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260916.1
+
+Add MiSeq i100 logbook mapping updates and fix EPP logger stream compatibility by implementing StreamToLogger.flush.
+
 ## 20260902.1
 
 Refactor zebra_barcodes script and update the CUPS server it uses.
