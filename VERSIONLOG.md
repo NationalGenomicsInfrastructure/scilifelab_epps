@@ -1,8 +1,8 @@
 # Scilifelab_epps Version Log
 
-## 20260909.1
+## 20260916.1
 
-Improve Zika normalization robustness by skipping invalid source metrics with warning logs, add multi-source QIAseq handling in bravo_csv, and support controlled multi-plate deck setup.
+Add MiSeq i100 logbook mapping updates and fix EPP logger stream compatibility by implementing StreamToLogger.flush.
 
 ## 20260902.1
 
