@@ -49,7 +49,7 @@ def epp_decorator(script_path: str, timestamp: str):
 
             # Get EPP user
             try:
-                epp_user: Researcher = get_epp_user(lims, args.pid)
+                epp_user: Researcher = get_epp_user(lims, procid=args.pid)
             except ValueError:
                 epp_user = None
 
