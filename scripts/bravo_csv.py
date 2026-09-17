@@ -382,9 +382,20 @@ def default_bravo(lims, currentStep, with_total_vol=True):
             ("", "Applications Generic Process"),
         ],
     ):
+        # Allow multiple source plates only for QIAseq miRNA
+        is_qiaseq_mirna = zika.utils.verify_step(
+            currentStep,
+            targets=[("QIAseq miRNA", "")],
+        )
+        source_plates = {
+            art_tuple[0]["uri"].location[0].id
+            for art_tuple in currentStep.input_output_maps
+            if art_tuple[1]["uri"].type == "Analyte"
+        }
         zika.methods.norm(
             currentStep=currentStep,
             lims=lims,
+            allow_multi_plate=is_qiaseq_mirna and len(source_plates) > 1,
             udfs={
                 "target_amt": "Amount for prep (ng)",
                 "target_vol": "Total Volume (uL)",

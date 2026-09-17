@@ -578,6 +578,7 @@ def norm(
     well_max_vol=180,  # TwinTec96
     # Input and output metrics
     use_customer_metrics=False,
+    allow_multi_plate=False,  # Allow up to 3 source plates; by default only one is allowed
     udfs={
         # Different steps may use different UDFs in different contexts
         # Here, ambiguity is eliminated within the script
@@ -658,28 +659,69 @@ def norm(
 
         df = zika.utils.fetch_sample_data(currentStep, to_fetch)
 
-        conc_unit = "ng/ul" if use_customer_metrics else df.conc_units[0]
+        # Cast numeric fields and skip inputs that cannot be normalized.
+        # This keeps hard validation for valid samples while allowing controls
+        # without source metrics to be ignored instead of crashing the step.
+        for numeric_col in ["conc", "vol", "target_amt", "target_vol"]:
+            df[numeric_col] = pd.to_numeric(df[numeric_col], errors="coerce")
+
+        invalid_rows = (
+            df.conc.isna()
+            | df.vol.isna()
+            | df.target_amt.isna()
+            | df.target_vol.isna()
+            | (df.conc <= 0)
+            | (df.target_amt <= 0)
+            | (df.target_vol <= 0)
+            | (df.vol <= well_dead_vol)
+        )
+        if invalid_rows.any():
+            skipped = df.loc[
+                invalid_rows, ["sample_name", "conc", "vol", "target_amt", "target_vol"]
+            ].copy()
+            for _, skipped_row in skipped.iterrows():
+                log.append(
+                    f"WARNING-SKIPPED: Sample {skipped_row.sample_name} skipped due to missing/insufficient source metrics "
+                    f"(conc={skipped_row.conc}, vol={skipped_row.vol} uL, target_amt={skipped_row.target_amt}, target_vol={skipped_row.target_vol} uL; minimum required source volume is {well_dead_vol} uL)"
+                )
+            df = df.loc[~invalid_rows].copy()
+            df = df.reset_index(drop=True)
+
+        assert not df.empty, (
+            "No valid samples left after filtering missing/insufficient source metrics"
+        )
+
+        conc_unit = "ng/ul" if use_customer_metrics else df.conc_units.iloc[0]
         amt_unit = "ng" if conc_unit == "ng/ul" else "fmol"
 
         # Assertions
         assert all(df.target_vol <= well_max_vol), (
             f"All target volumes must be at or below {well_max_vol} uL"
         )
-
-        assert all(df.vol > well_dead_vol), (
-            f"The minimum required source volume is {well_dead_vol} ul"
-        )
         df["full_vol"] = df.vol.copy()
         df.loc[:, "vol"] = df.vol - well_dead_vol
 
         # Define deck
-        assert len(df.src_id.unique()) == 1, "Only one input plate allowed"
         assert len(df.dst_id.unique()) == 1, "Only one output plate allowed"
-        deck = {
-            df.src_name.unique()[0]: 2,
-            df.dst_name.unique()[0]: 3,
-            "buffer_plate": 4,
-        }
+        if allow_multi_plate:
+            assert len(df.src_id.unique()) <= 3, (
+                "Only one to three input plates allowed"
+            )
+            deck = {}
+            deck[df.dst_name.unique()[0]] = 3
+            available = [2, 4, 1, 5][: len(df.src_name.unique())]
+            for plate, pos in zip(df.src_name.unique(), available):
+                deck[plate] = pos
+            deck["buffer_plate"] = next(
+                p for p in [4, 1, 5, 6] if p not in deck.values()
+            )
+        else:
+            assert len(df.src_id.unique()) == 1, "Only one input plate allowed"
+            deck = {
+                df.src_name.unique()[0]: 2,
+                df.dst_name.unique()[0]: 3,
+                "buffer_plate": 4,
+            }
 
         # Make calculations
         df["target_conc"] = df.target_amt / df.target_vol
