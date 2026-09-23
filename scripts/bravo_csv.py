@@ -58,6 +58,7 @@ def _is_watchmaker_setup_workset_plate(currentStep):
 def _watchmaker_setup_workset_plate(lims, currentStep):
     checkTheLog = [False]
     csv_rows = []
+    common_style_log_lines = []
     log_lines = [
         (
             "INFO: Watchmaker mRNA Setup Workset/Plate detected. "
@@ -109,6 +110,9 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 f"Volume (ul)={inp.udf.get('Volume (ul)')}, "
                 f"Amount for prep (ng)={out.udf['Amount for prep (ng)']})."
             )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to missing/invalid concentration-volume metrics."
+            )
             continue
 
         required_sample_vol = target_amt / conc
@@ -120,6 +124,10 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
             log_lines.append(
                 f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
                 f"(required transfer {required_sample_vol:.2f} uL is below minimum pipetting volume {MIN_WARNING_VOLUME:.2f} uL)."
+            )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
+                f"(required transfer {required_sample_vol:.2f}uL below minimum pipetting volume {MIN_WARNING_VOLUME:.2f}uL)."
             )
             continue
 
@@ -136,12 +144,30 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 f"WARNING-LOW-CONC-PRIORITY: Sample {sample_name} located {source_fc} {source_well} "
                 f"requires {required_sample_vol:.2f} uL which exceeds fixed final volume {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
             )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} has a HIGHER volume than the total: "
+                f"{required_sample_vol:.2f}uL over {WATCHMAKER_FINAL_VOLUME_UL:.2f}uL. "
+                f"Take total volume: {sample_vol:.2f}uL which is {actual_amt:.2f}ng."
+            )
 
         if required_sample_vol > src_vol:
             checkTheLog[0] = True
             log_lines.append(
                 f"WARNING-LOW-VOLUME: Sample {sample_name} located {source_fc} {source_well} has insufficient source volume. "
                 f"Using {sample_vol:.2f} uL sample and {buffer_vol:.2f} uL buffer to keep final volume at {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+            )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} has a HIGHER volume than the original: "
+                f"{required_sample_vol:.2f}uL over {src_vol:.2f}uL. "
+                f"Take original volume: {sample_vol:.2f}uL which is {actual_amt:.2f}ng and dilute in a total volume {WATCHMAKER_FINAL_VOLUME_UL:.2f}uL."
+            )
+
+        if (
+            required_sample_vol <= WATCHMAKER_FINAL_VOLUME_UL
+            and required_sample_vol <= src_vol
+        ):
+            common_style_log_lines.append(
+                f"INFO : Sample {sample_name} located {source_fc} {source_well} looks okay."
             )
 
         out.udf["Amount for prep (ng)"] = float(round(actual_amt, 2))
@@ -170,6 +196,23 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
         "Samples skipped due to missing/invalid concentration-volume metrics: "
         f"{skipped_missing_info_count}"
     )
+    if common_style_log_lines:
+        log_lines.append("\n=== Watchmaker Common-Style Log ===")
+        log_lines.extend(common_style_log_lines)
+    watchmaker_summary_text = (
+        "=== Watchmaker Summary ===\n"
+        f"Samples with low concentration warnings: {low_conc_count}\n"
+        f"Samples skipped due to high concentration: {skipped_high_conc_count}\n"
+        "Samples skipped due to missing/invalid concentration-volume metrics: "
+        f"{skipped_missing_info_count}"
+    )
+    watchmaker_summary_single_line = (
+        "Watchmaker Summary: "
+        f"low concentration warnings={low_conc_count}; "
+        f"skipped due to high concentration={skipped_high_conc_count}; "
+        "skipped due to missing/invalid concentration-volume metrics="
+        f"{skipped_missing_info_count}. Please check Bravo Log file for details."
+    )
 
     with open("bravo.log", "w") as logContext:
         logContext.write("\n".join(log_lines) + "\n")
@@ -182,6 +225,8 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 lims.upload_new_file(out, "bravo.log")
         sys.stderr.write(
             "No valid Watchmaker samples remain after applying skip rules. Please check Bravo Log file for details.\n"
+            f"{watchmaker_summary_text}\n"
+            f"{watchmaker_summary_single_line}\n"
         )
         sys.exit(2)
 
@@ -216,6 +261,8 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
     if checkTheLog[0]:
         sys.stderr.write(
             "Watchmaker setup completed with warnings/skipped samples. Please check Bravo Log file for details.\n"
+            f"{watchmaker_summary_text}\n"
+            f"{watchmaker_summary_single_line}\n"
         )
         sys.exit(2)
     else:
@@ -568,9 +615,18 @@ def setup_qpcr(currentStep, lims):
 
 def default_bravo(lims, currentStep, with_total_vol=True):
     if _is_watchmaker_setup_workset_plate(currentStep):
-        if "Bravo" not in (currentStep.instrument.name or ""):
+        udf_instrument_name = (currentStep.udf.get("Instrument Used") or "").strip()
+        instrument_name = (getattr(currentStep.instrument, "name", "") or "").strip()
+        effective_instrument_name = udf_instrument_name or instrument_name
+        allowed_instrument_keywords = ("bender", "hal", "ash", "marvin")
+        instrument_name_lc = effective_instrument_name.casefold()
+        if not any(
+            keyword in instrument_name_lc for keyword in allowed_instrument_keywords
+        ):
             sys.stderr.write(
-                "Watchmaker mRNA Setup Workset/Plate must run on an instrument containing 'Bravo' in its name. Please select the correct Bravo instrument and retry.\n"
+                "Watchmaker mRNA Setup Workset/Plate must run on a valid Bravo instrument "
+                "(Bender, HAL, Ash, or Marvin). "
+                f"Detected instrument: '{effective_instrument_name or 'UNKNOWN'}'. Please select the correct instrument and retry.\n"
             )
             sys.exit(2)
         _watchmaker_setup_workset_plate(lims, currentStep)
