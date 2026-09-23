@@ -1,5 +1,14 @@
 # Scilifelab_epps Version Log
 
+## 20260923.1
+
+Watchmaker and logbook updates:
+- Separate Watchmaker low concentration and low volume warning logic in bravo CSV generation.
+- Allow Watchmaker instrument name variants (Bender, HAL, Ash, Marvin) for Setup Workset/Plate validation.
+- Sync Watchmaker `bravo_csv.py` updates from the `Liqun-ONTWorkflow` branch.
+- Add `Watchmaker mRNA Library Prep (Biomek i7) v1.0` to comments-to-running-notes categorization.
+- Update logbook configuration data.
+
 ## 20260916.1
 
 Add MiSeq i100 logbook mapping updates and fix EPP logger stream compatibility by implementing StreamToLogger.flush.
