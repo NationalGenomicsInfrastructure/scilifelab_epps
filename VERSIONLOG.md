@@ -2,11 +2,7 @@
 
 ## 20260923.1
 
-Watchmaker and logbook updates:
-- Separate Watchmaker low concentration and low volume warning logic in bravo CSV generation.
-- Allow Watchmaker instrument name variants (Bender, HAL, Ash, Marvin) for Setup Workset/Plate validation.
-- Add `Watchmaker mRNA Library Prep (Biomek i7) v1.0` to comments-to-running-notes categorization.
-- Update logbook configuration data.
+Watchmaker workflow updates, running-notes mapping, and logbook config changes.
 
 ## 20260916.1
 
