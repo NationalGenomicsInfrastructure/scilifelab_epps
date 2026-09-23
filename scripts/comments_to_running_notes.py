@@ -179,6 +179,7 @@ def categorization(process_name):
         "Tissue Extraction": "",
         "Tissue QC": "",
         "Volume Measurement QC": "Workset",
+        "Watchmaker mRNA Library Prep (Biomek i7) v1.0": "Workset",
     }
 
     return decision[process_name]
