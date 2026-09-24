@@ -56,7 +56,7 @@ def _is_watchmaker_setup_workset_plate(currentStep):
 
 
 def _watchmaker_setup_workset_plate(lims, currentStep):
-    checkTheLog = [False]
+    checkTheLog = False
     csv_rows = []
     common_style_log_lines = []
     log_lines = [
@@ -102,7 +102,7 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
             or target_amt <= 0
         ):
             skipped_missing_info_count += 1
-            checkTheLog[0] = True
+            checkTheLog = True
             log_lines.append(
                 f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} "
                 "skipped due to missing/invalid concentration-volume metrics "
@@ -120,7 +120,7 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
         # Watchmaker rule: skip high concentration if required sample transfer is below minimum pipetting volume.
         if required_sample_vol < MIN_WARNING_VOLUME:
             skipped_high_conc_count += 1
-            checkTheLog[0] = True
+            checkTheLog = True
             log_lines.append(
                 f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
                 f"(required transfer {required_sample_vol:.2f} uL is below minimum pipetting volume {MIN_WARNING_VOLUME:.2f} uL)."
@@ -139,7 +139,7 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
         # A sample can legitimately trigger both.
         if required_sample_vol > WATCHMAKER_FINAL_VOLUME_UL:
             low_conc_count += 1
-            checkTheLog[0] = True
+            checkTheLog = True
             log_lines.append(
                 f"WARNING-LOW-CONC-PRIORITY: Sample {sample_name} located {source_fc} {source_well} "
                 f"requires {required_sample_vol:.2f} uL which exceeds fixed final volume {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
@@ -151,7 +151,7 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
             )
 
         if required_sample_vol > src_vol:
-            checkTheLog[0] = True
+            checkTheLog = True
             log_lines.append(
                 f"WARNING-LOW-VOLUME: Sample {sample_name} located {source_fc} {source_well} has insufficient source volume. "
                 f"Using {sample_vol:.2f} uL sample and {buffer_vol:.2f} uL buffer to keep final volume at {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
@@ -199,13 +199,6 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
     if common_style_log_lines:
         log_lines.append("\n=== Watchmaker Common-Style Log ===")
         log_lines.extend(common_style_log_lines)
-    watchmaker_summary_text = (
-        "=== Watchmaker Summary ===\n"
-        f"Samples with low concentration warnings: {low_conc_count}\n"
-        f"Samples skipped due to high concentration: {skipped_high_conc_count}\n"
-        "Samples skipped due to missing/invalid concentration-volume metrics: "
-        f"{skipped_missing_info_count}"
-    )
     watchmaker_summary_single_line = (
         "Watchmaker Summary: "
         f"low concentration warnings={low_conc_count}; "
@@ -225,7 +218,6 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 lims.upload_new_file(out, "bravo.log")
         sys.stderr.write(
             "No valid Watchmaker samples remain after applying skip rules. Please check Bravo Log file for details.\n"
-            f"{watchmaker_summary_text}\n"
             f"{watchmaker_summary_single_line}\n"
         )
         sys.exit(2)
@@ -258,10 +250,9 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 lims.request_session.delete(f.uri)
             lims.upload_new_file(out, f"{dest_plate_name}_bravo.log")
 
-    if checkTheLog[0]:
+    if checkTheLog:
         sys.stderr.write(
             "Watchmaker setup completed with warnings/skipped samples. Please check Bravo Log file for details.\n"
-            f"{watchmaker_summary_text}\n"
             f"{watchmaker_summary_single_line}\n"
         )
         sys.exit(2)
