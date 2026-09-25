@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260925.1
+
+Update logbook PCR Cycler fallback and CytAssist instrument mapping.
+
 ## 20260923.1
 
 Watchmaker workflow updates, running-notes mapping, and logbook config changes.
