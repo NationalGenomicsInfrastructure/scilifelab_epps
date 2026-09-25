@@ -584,6 +584,12 @@ lims_process_record = {
     "Volume Measurement QC": {
         "lims_instrument": {"dest_file": "VC100"},
     },
+    "Watchmaker mRNA Library Prep (Biomek i7) v1.0": {
+        "lims_instrument": {
+            "dest_file": ["Biomek"],
+            "details": ["Processname"],
+        }
+    },
 }
 
 # A full list of GDoc electronic logooks of instruments

@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20260923.1
+
+Watchmaker workflow updates, running-notes mapping, and logbook config changes.
+
 ## 20260916.1
 
 Add MiSeq i100 logbook mapping updates and fix EPP logger stream compatibility by implementing StreamToLogger.flush.

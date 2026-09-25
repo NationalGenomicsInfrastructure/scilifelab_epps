@@ -27,6 +27,238 @@ Dilution_preset = {"Smarter pico": [1.25, 375.0, 10.0]}
 IDX_PAT = re.compile("([ATCG]{4,})-?([ATCG]*)")
 TENX_PAT = re.compile("SI-GA-[A-H][1-9][0-2]?")
 
+WATCHMAKER_WORKFLOW_KEYWORD = "Watchmaker mRNA"
+WATCHMAKER_FINAL_VOLUME_UL = 50.0
+
+
+def _safe_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_watchmaker_setup_workset_plate(currentStep):
+    if "Setup Workset/Plate" not in currentStep.type.name:
+        return False
+
+    for art in currentStep.all_inputs():
+        if art.type != "Analyte":
+            continue
+        for stage in art.workflow_stages_and_statuses:
+            if (
+                stage[1] == "IN_PROGRESS"
+                and WATCHMAKER_WORKFLOW_KEYWORD in stage[0].workflow.name
+            ):
+                return True
+
+    return False
+
+
+def _watchmaker_setup_workset_plate(lims, currentStep):
+    checkTheLog = False
+    csv_rows = []
+    common_style_log_lines = []
+    log_lines = [
+        (
+            "INFO: Watchmaker mRNA Setup Workset/Plate detected. "
+            f"Final volume is fixed to {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+        )
+    ]
+
+    low_conc_count = 0
+    skipped_high_conc_count = 0
+    skipped_missing_info_count = 0
+    dest_plate_names = set()
+
+    for art_tuple in currentStep.input_output_maps:
+        if (
+            art_tuple[0]["uri"].type != "Analyte"
+            or art_tuple[1]["uri"].type != "Analyte"
+        ):
+            continue
+
+        inp = art_tuple[0]["uri"]
+        out = art_tuple[1]["uri"]
+
+        sample_name = out.samples[0].name
+        source_fc = inp.location[0].name
+        source_well = inp.location[1]
+        dest_fc = out.location[0].id
+        dest_well = out.location[1]
+        dest_plate_names.add(out.location[0].name)
+
+        conc_unit = inp.udf.get("Conc. Units")
+        conc = _safe_float(inp.udf.get("Concentration"))
+        src_vol = _safe_float(inp.udf.get("Volume (ul)"))
+        target_amt = float(out.udf["Amount for prep (ng)"])
+
+        if (
+            conc_unit not in ["ng/ul", "ng/uL"]
+            or conc is None
+            or src_vol is None
+            or conc <= 0
+            or src_vol <= 0
+            or target_amt <= 0
+        ):
+            skipped_missing_info_count += 1
+            checkTheLog = True
+            log_lines.append(
+                f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} "
+                "skipped due to missing/invalid concentration-volume metrics "
+                f"(Conc. Units={conc_unit}, Concentration={inp.udf.get('Concentration')}, "
+                f"Volume (ul)={inp.udf.get('Volume (ul)')}, "
+                f"Amount for prep (ng)={out.udf['Amount for prep (ng)']})."
+            )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to missing/invalid concentration-volume metrics."
+            )
+            continue
+
+        required_sample_vol = target_amt / conc
+
+        # Watchmaker rule: skip high concentration if required sample transfer is below minimum pipetting volume.
+        if required_sample_vol < MIN_WARNING_VOLUME:
+            skipped_high_conc_count += 1
+            checkTheLog = True
+            log_lines.append(
+                f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
+                f"(required transfer {required_sample_vol:.2f} uL is below minimum pipetting volume {MIN_WARNING_VOLUME:.2f} uL)."
+            )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
+                f"(required transfer {required_sample_vol:.2f}uL below minimum pipetting volume {MIN_WARNING_VOLUME:.2f}uL)."
+            )
+            continue
+
+        sample_vol = min(required_sample_vol, src_vol, WATCHMAKER_FINAL_VOLUME_UL)
+        buffer_vol = WATCHMAKER_FINAL_VOLUME_UL - sample_vol
+        actual_amt = sample_vol * conc
+
+        # Low concentration and low volume are separate warnings.
+        # A sample can legitimately trigger both.
+        if required_sample_vol > WATCHMAKER_FINAL_VOLUME_UL:
+            low_conc_count += 1
+            checkTheLog = True
+            log_lines.append(
+                f"WARNING-LOW-CONC-PRIORITY: Sample {sample_name} located {source_fc} {source_well} "
+                f"requires {required_sample_vol:.2f} uL which exceeds fixed final volume {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+            )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} has a HIGHER volume than the total: "
+                f"{required_sample_vol:.2f}uL over {WATCHMAKER_FINAL_VOLUME_UL:.2f}uL. "
+                f"Take total volume: {sample_vol:.2f}uL which is {actual_amt:.2f}ng."
+            )
+
+        if required_sample_vol > src_vol:
+            checkTheLog = True
+            log_lines.append(
+                f"WARNING-LOW-VOLUME: Sample {sample_name} located {source_fc} {source_well} has insufficient source volume. "
+                f"Using {sample_vol:.2f} uL sample and {buffer_vol:.2f} uL buffer to keep final volume at {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+            )
+            common_style_log_lines.append(
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} has a HIGHER volume than the original: "
+                f"{required_sample_vol:.2f}uL over {src_vol:.2f}uL. "
+                f"Take original volume: {sample_vol:.2f}uL which is {actual_amt:.2f}ng and dilute in a total volume {WATCHMAKER_FINAL_VOLUME_UL:.2f}uL."
+            )
+
+        if (
+            required_sample_vol <= WATCHMAKER_FINAL_VOLUME_UL
+            and required_sample_vol <= src_vol
+        ):
+            common_style_log_lines.append(
+                f"INFO : Sample {sample_name} located {source_fc} {source_well} looks okay."
+            )
+
+        out.udf["Amount for prep (ng)"] = float(round(actual_amt, 2))
+        if "Amount taken from plate (ng)" in out.udf:
+            out.udf["Amount taken from plate (ng)"] = float(round(actual_amt, 2))
+        out.udf["Total Volume (uL)"] = float(round(WATCHMAKER_FINAL_VOLUME_UL, 1))
+        out.put()
+
+        csv_rows.append(
+            (
+                source_fc,
+                source_well,
+                f"{sample_vol:.2f}",
+                dest_fc,
+                dest_well,
+                f"{WATCHMAKER_FINAL_VOLUME_UL:.2f}",
+            )
+        )
+
+    log_lines.append("\n=== Watchmaker Summary ===")
+    log_lines.append(f"Samples with low concentration warnings: {low_conc_count}")
+    log_lines.append(
+        f"Samples skipped due to high concentration: {skipped_high_conc_count}"
+    )
+    log_lines.append(
+        "Samples skipped due to missing/invalid concentration-volume metrics: "
+        f"{skipped_missing_info_count}"
+    )
+    if common_style_log_lines:
+        log_lines.append("\n=== Watchmaker Common-Style Log ===")
+        log_lines.extend(common_style_log_lines)
+    watchmaker_summary_single_line = (
+        "Watchmaker Summary: "
+        f"low concentration warnings={low_conc_count}; "
+        f"skipped due to high concentration={skipped_high_conc_count}; "
+        "skipped due to missing/invalid concentration-volume metrics="
+        f"{skipped_missing_info_count}. Please check Bravo Log file for details."
+    )
+
+    with open("bravo.log", "w") as logContext:
+        logContext.write("\n".join(log_lines) + "\n")
+
+    if not csv_rows:
+        for out in currentStep.all_outputs():
+            if out.name == "Bravo Log":
+                for f in out.files:
+                    lims.request_session.delete(f.uri)
+                lims.upload_new_file(out, "bravo.log")
+        sys.stderr.write(
+            "No valid Watchmaker samples remain after applying skip rules. Please check Bravo Log file for details.\n"
+            f"{watchmaker_summary_single_line}\n"
+        )
+        sys.exit(2)
+
+    with open("bravo.csv", "w") as csvContext:
+        for row in csv_rows:
+            csvContext.write(",".join(map(str, row)) + "\n")
+
+    df = pd.read_csv("bravo.csv", header=None)
+    df["dest_row"] = df.apply(lambda row: row[4].split(":")[0], axis=1)
+    df["dest_col"] = df.apply(lambda row: int(row[4].split(":")[1]), axis=1)
+    df = df.sort_values(["dest_col", "dest_row"]).drop(["dest_row", "dest_col"], axis=1)
+    df.to_csv("bravo.csv", header=False, index=False)
+
+    if len(dest_plate_names) == 1:
+        dest_plate_name = list(dest_plate_names)[0]
+        os.rename("bravo.csv", f"{dest_plate_name}_bravo.csv")
+        os.rename("bravo.log", f"{dest_plate_name}_bravo.log")
+    else:
+        sys.stderr.write("ERROR: Multiple output plates!\n")
+        sys.exit(2)
+
+    for out in currentStep.all_outputs():
+        if out.name == "EPP Generated Bravo CSV File":
+            for f in out.files:
+                lims.request_session.delete(f.uri)
+            lims.upload_new_file(out, f"{dest_plate_name}_bravo.csv")
+        if out.name == "Bravo Log":
+            for f in out.files:
+                lims.request_session.delete(f.uri)
+            lims.upload_new_file(out, f"{dest_plate_name}_bravo.log")
+
+    if checkTheLog:
+        sys.stderr.write(
+            "Watchmaker setup completed with warnings/skipped samples. Please check Bravo Log file for details.\n"
+            f"{watchmaker_summary_single_line}\n"
+        )
+        sys.exit(2)
+    else:
+        logging.info("Work done")
+
 
 def obtain_previous_volumes(currentStep, lims):
     samples_volumes = {}
@@ -373,6 +605,24 @@ def setup_qpcr(currentStep, lims):
 
 
 def default_bravo(lims, currentStep, with_total_vol=True):
+    if _is_watchmaker_setup_workset_plate(currentStep):
+        udf_instrument_name = (currentStep.udf.get("Instrument Used") or "").strip()
+        instrument_name = (getattr(currentStep.instrument, "name", "") or "").strip()
+        effective_instrument_name = udf_instrument_name or instrument_name
+        allowed_instrument_keywords = ("bender", "hal", "ash", "marvin")
+        instrument_name_lc = effective_instrument_name.casefold()
+        if not any(
+            keyword in instrument_name_lc for keyword in allowed_instrument_keywords
+        ):
+            sys.stderr.write(
+                "Watchmaker mRNA Setup Workset/Plate must run on a valid Bravo instrument "
+                "(Bender, HAL, Ash, or Marvin). "
+                f"Detected instrument: '{effective_instrument_name or 'UNKNOWN'}'. Please select the correct instrument and retry.\n"
+            )
+            sys.exit(2)
+        _watchmaker_setup_workset_plate(lims, currentStep)
+        return
+
     # Re-route to Zika
     if zika.utils.verify_step(
         currentStep,
