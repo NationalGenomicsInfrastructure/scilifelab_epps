@@ -26,6 +26,29 @@ SERVICE_ACCOUNT_FILE = "/opt/gls/clarity/users/glsai/.credentials/ngi-lims-epp-0
 
 # In coordinates, the values correspond to LineID of the header, columns for date, operator, instrument name and details. The sheet name should be "Logbook"
 LOGBOOK_COORDINATES = [22, "B", "C", "D", "E"]
+SAMPLE_LEVEL_FALLBACK_UDFS = {"PCR Cycler"}
+
+
+def get_udf_value(pro, udf_name):
+    """Return process UDF value, or sample-level fallback for selected UDFs."""
+    value = pro.udf.get(udf_name)
+    if value:
+        return value
+
+    if udf_name not in SAMPLE_LEVEL_FALLBACK_UDFS:
+        return None
+
+    values = set()
+    for art in pro.all_outputs():
+        if art.type != "Analyte":
+            continue
+        sample_value = art.udf.get(udf_name)
+        if sample_value:
+            values.add(sample_value)
+
+    if values:
+        return ", ".join(sorted(str(v) for v in values))
+    return None
 
 
 def get_credentials():
@@ -133,11 +156,9 @@ def main(lims, pid, epp_logger):
                 continue
             log.append(pro.instrument.name)
         elif instrument.startswith("udf_"):
-            if pro.udf.get(instrument[4:]) and pro.udf.get(instrument[4:]) not in [
-                "Manually",
-                "Manual",
-            ]:
-                log.append(pro.udf.get(instrument[4:]))
+            udf_value = get_udf_value(pro, instrument[4:])
+            if udf_value:
+                log.append(udf_value)
             else:
                 continue
         details = get_details(record[instrument], pro)

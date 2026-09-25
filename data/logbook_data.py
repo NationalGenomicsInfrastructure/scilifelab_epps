@@ -111,7 +111,7 @@ lims_process_record = {
         "lims_instrument": {"dest_file": "Bravo", "details": ["Processname"]}
     },
     "CytAssist Probe release and Extension": {
-        "udf_Instrument Used": {"dest_file": "CytAssist", "details": ["Processname"]},
+        "lims_instrument": {"dest_file": "CytAssist", "details": ["Processname"]},
         "udf_PCR Cycler": {"dest_file": "PCR"},
     },
     "Decrosslinking and/or Destaining": {
