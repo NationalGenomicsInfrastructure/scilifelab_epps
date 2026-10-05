@@ -18,6 +18,9 @@ QC_criteria_json = (
 with open(QC_criteria_json) as file:
     QC_criteria = json.loads(file.read())
 
+# These steps have no Concentration/Size measurements; QC flag alone drives the summary
+FLAG_ONLY_STEPS = {"Aggregate QC (CytAssist)", "Aggregate QC (Visium HD 3) v1.0"}
+
 
 # Prepare a table with all sample details
 def prepare_sample_table(artifacts):
@@ -50,7 +53,7 @@ def prepare_sample_table(artifacts):
     return sample_table
 
 
-def verify_sample_table(sample_table, library=False):
+def verify_sample_table(sample_table, library=False, flag_only=False):
     error_message = []
     measurements_keys = set()
     optional_keys = {
@@ -72,7 +75,8 @@ def verify_sample_table(sample_table, library=False):
             error_message.append("Sample {} is missing QC flag!".format(v["name"]))
     # No measurement is filled in
     if len(measurements_keys) == 0:
-        error_message.append("No measurement is available!")
+        if not flag_only:
+            error_message.append("No measurement is available!")
     else:
         # Remove the UDFs that should skip checking
         if measurements_keys & optional_keys:
@@ -247,12 +251,19 @@ def make_summary(lims, process, sample_table, library):
 def main(lims, args):
     pro = Process(lims, id=args.pid)
     library = (
-        True if pro.type.name in ["Aggregate QC (Library Validation) 4.0"] else False
+        True
+        if pro.type.name
+        in [
+            "Aggregate QC (Library Validation) 4.0",
+            "Aggregate QC (Library Pool QC) v1.0",
+        ]
+        else False
     )
+    flag_only = pro.type.name in FLAG_ONLY_STEPS
 
     artifacts = pro.all_inputs(unique=True)
     sample_table = prepare_sample_table(artifacts)
-    error_message = verify_sample_table(sample_table, library)
+    error_message = verify_sample_table(sample_table, library, flag_only)
     if error_message:
         sys.exit(" ".join(error_message))
     summary = make_summary(lims, pro, sample_table, library)
