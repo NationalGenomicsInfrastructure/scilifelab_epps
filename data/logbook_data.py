@@ -443,11 +443,14 @@ lims_process_record = {
             "details": ["Processname"],
         }
     },
+    "Probe Elution and Pre-Amplification Clean-up": {
+        "udf_PCR Cycler": {"dest_file": "PCR"},
+    },
     "Probe Hybridization and Ligation": {
         "udf_PCR Cycler": {"dest_file": "PCR"},
     },
     "Probe-based Library Construction": {
-        "udf_PCR Cycler": {"dest_file": "PCR"},
+        "lims_instrument": {"dest_file": "PCR"},
     },
     "Pre-Pooling (AVITI) v1.0": {
         "lims_instrument": {
