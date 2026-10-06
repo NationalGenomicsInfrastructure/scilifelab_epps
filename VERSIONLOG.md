@@ -4,6 +4,10 @@
 
 Fix to support flag-only Aggregate QC workflows and update logbook PCR mappings.
 
+## 20260930.1
+
+Add functions to project validator
+
 ## 20260928.1
 
 Add MiSeq i100 to automatic runnning note generation in sequencing.
