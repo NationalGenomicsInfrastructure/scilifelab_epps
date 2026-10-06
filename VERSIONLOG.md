@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20261006.1
+
+Fix to support flag-only Aggregate QC workflows and update logbook PCR mappings.
+
 ## 20260928.1
 
 Add MiSeq i100 to automatic runnning note generation in sequencing.
