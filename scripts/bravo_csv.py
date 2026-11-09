@@ -28,7 +28,6 @@ IDX_PAT = re.compile("([ATCG]{4,})-?([ATCG]*)")
 TENX_PAT = re.compile("SI-GA-[A-H][1-9][0-2]?")
 
 WATCHMAKER_WORKFLOW_KEYWORD = "Watchmaker mRNA"
-WATCHMAKER_FINAL_VOLUME_UL = 50.0
 
 
 def _safe_float(value):
@@ -62,11 +61,12 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
     log_lines = [
         (
             "INFO: Watchmaker mRNA Setup Workset/Plate detected. "
-            f"Final volume is fixed to {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+            "Final volume is taken from the 'Total Volume (uL)' field in LIMS."
         )
     ]
 
     low_conc_count = 0
+    high_conc_adjusted_count = 0
     skipped_high_conc_count = 0
     skipped_missing_info_count = 0
     dest_plate_names = set()
@@ -91,15 +91,19 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
         conc_unit = inp.udf.get("Conc. Units")
         conc = _safe_float(inp.udf.get("Concentration"))
         src_vol = _safe_float(inp.udf.get("Volume (ul)"))
-        target_amt = float(out.udf["Amount for prep (ng)"])
+        target_amt = _safe_float(out.udf.get("Amount for prep (ng)"))
+        total_vol = _safe_float(out.udf.get("Total Volume (uL)"))
 
         if (
             conc_unit not in ["ng/ul", "ng/uL"]
             or conc is None
             or src_vol is None
+            or target_amt is None
+            or total_vol is None
             or conc <= 0
             or src_vol <= 0
             or target_amt <= 0
+            or total_vol <= 0
         ):
             skipped_missing_info_count += 1
             checkTheLog = True
@@ -108,7 +112,8 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 "skipped due to missing/invalid concentration-volume metrics "
                 f"(Conc. Units={conc_unit}, Concentration={inp.udf.get('Concentration')}, "
                 f"Volume (ul)={inp.udf.get('Volume (ul)')}, "
-                f"Amount for prep (ng)={out.udf['Amount for prep (ng)']})."
+                f"Amount for prep (ng)={out.udf.get('Amount for prep (ng)')}, "
+                f"Total Volume (uL)={out.udf.get('Total Volume (uL)')})."
             )
             common_style_log_lines.append(
                 f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to missing/invalid concentration-volume metrics."
@@ -116,56 +121,76 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
             continue
 
         required_sample_vol = target_amt / conc
+        is_high_conc = required_sample_vol < MIN_WARNING_VOLUME
 
-        # Watchmaker rule: skip high concentration if required sample transfer is below minimum pipetting volume.
-        if required_sample_vol < MIN_WARNING_VOLUME:
-            skipped_high_conc_count += 1
+        if is_high_conc:
+            # Pipette the minimum volume and expand the final volume to keep the target concentration.
+            sample_vol = MIN_WARNING_VOLUME
+            final_vol = sample_vol * total_vol / required_sample_vol
+            if final_vol > MAX_WARNING_VOLUME:
+                skipped_high_conc_count += 1
+                checkTheLog = True
+                log_lines.append(
+                    f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
+                    f"(required transfer {required_sample_vol:.2f} uL is below minimum pipetting volume {MIN_WARNING_VOLUME:.2f} uL "
+                    f"and the expanded final volume {final_vol:.2f} uL exceeds max volume {MAX_WARNING_VOLUME:.2f} uL)."
+                )
+                common_style_log_lines.append(
+                    f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
+                    f"(expanded final volume {final_vol:.2f}uL over max volume {MAX_WARNING_VOLUME:.2f}uL)."
+                )
+                continue
+            is_low_conc = False
+            is_low_src_vol = False
+            actual_amt = sample_vol * conc
+            high_conc_adjusted_count += 1
             checkTheLog = True
             log_lines.append(
-                f"WARNING-SKIPPED: Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
-                f"(required transfer {required_sample_vol:.2f} uL is below minimum pipetting volume {MIN_WARNING_VOLUME:.2f} uL)."
+                f"WARNING-HIGH-CONC: Sample {sample_name} located {source_fc} {source_well} "
+                f"requires {required_sample_vol:.2f} uL which is below minimum pipetting volume {MIN_WARNING_VOLUME:.2f} uL. "
+                f"Final volume expanded from {total_vol:.2f} uL to {final_vol:.2f} uL."
             )
             common_style_log_lines.append(
-                f"WARN : Sample {sample_name} located {source_fc} {source_well} skipped due to high concentration "
-                f"(required transfer {required_sample_vol:.2f}uL below minimum pipetting volume {MIN_WARNING_VOLUME:.2f}uL)."
+                f"WARN : Sample {sample_name} located {source_fc} {source_well} has a LOW pipetting volume: {required_sample_vol:.2f}uL. "
+                f"CSV adjusted by taking {sample_vol:.2f}uL sample which is {actual_amt:.2f}ng and diluting in a total volume {final_vol:.2f}uL."
             )
-            continue
+        else:
+            final_vol = total_vol
+            sample_vol = min(required_sample_vol, src_vol, final_vol)
+            is_low_conc = required_sample_vol > final_vol
+            is_low_src_vol = required_sample_vol > src_vol
+            actual_amt = sample_vol * conc
 
-        sample_vol = min(required_sample_vol, src_vol, WATCHMAKER_FINAL_VOLUME_UL)
-        buffer_vol = WATCHMAKER_FINAL_VOLUME_UL - sample_vol
-        actual_amt = sample_vol * conc
+        buffer_vol = final_vol - sample_vol
 
         # Low concentration and low volume are separate warnings.
         # A sample can legitimately trigger both.
-        if required_sample_vol > WATCHMAKER_FINAL_VOLUME_UL:
+        if is_low_conc:
             low_conc_count += 1
             checkTheLog = True
             log_lines.append(
                 f"WARNING-LOW-CONC-PRIORITY: Sample {sample_name} located {source_fc} {source_well} "
-                f"requires {required_sample_vol:.2f} uL which exceeds fixed final volume {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+                f"requires {required_sample_vol:.2f} uL which exceeds total volume {final_vol:.2f} uL."
             )
             common_style_log_lines.append(
                 f"WARN : Sample {sample_name} located {source_fc} {source_well} has a HIGHER volume than the total: "
-                f"{required_sample_vol:.2f}uL over {WATCHMAKER_FINAL_VOLUME_UL:.2f}uL. "
-                f"Take total volume: {sample_vol:.2f}uL which is {actual_amt:.2f}ng."
+                f"{required_sample_vol:.2f}uL over {final_vol:.2f}uL. "
+                f"Take {sample_vol:.2f}uL which is {actual_amt:.2f}ng."
             )
 
-        if required_sample_vol > src_vol:
+        if is_low_src_vol:
             checkTheLog = True
             log_lines.append(
                 f"WARNING-LOW-VOLUME: Sample {sample_name} located {source_fc} {source_well} has insufficient source volume. "
-                f"Using {sample_vol:.2f} uL sample and {buffer_vol:.2f} uL buffer to keep final volume at {WATCHMAKER_FINAL_VOLUME_UL:.1f} uL."
+                f"Using {sample_vol:.2f} uL sample and {buffer_vol:.2f} uL buffer to keep final volume at {final_vol:.2f} uL."
             )
             common_style_log_lines.append(
                 f"WARN : Sample {sample_name} located {source_fc} {source_well} has a HIGHER volume than the original: "
                 f"{required_sample_vol:.2f}uL over {src_vol:.2f}uL. "
-                f"Take original volume: {sample_vol:.2f}uL which is {actual_amt:.2f}ng and dilute in a total volume {WATCHMAKER_FINAL_VOLUME_UL:.2f}uL."
+                f"Take {sample_vol:.2f}uL which is {actual_amt:.2f}ng and dilute in a total volume {final_vol:.2f}uL."
             )
 
-        if (
-            required_sample_vol <= WATCHMAKER_FINAL_VOLUME_UL
-            and required_sample_vol <= src_vol
-        ):
+        if not (is_high_conc or is_low_conc or is_low_src_vol):
             common_style_log_lines.append(
                 f"INFO : Sample {sample_name} located {source_fc} {source_well} looks okay."
             )
@@ -173,7 +198,7 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
         out.udf["Amount for prep (ng)"] = float(round(actual_amt, 2))
         if "Amount taken from plate (ng)" in out.udf:
             out.udf["Amount taken from plate (ng)"] = float(round(actual_amt, 2))
-        out.udf["Total Volume (uL)"] = float(round(WATCHMAKER_FINAL_VOLUME_UL, 1))
+        out.udf["Total Volume (uL)"] = float(round(final_vol, 2))
         out.put()
 
         csv_rows.append(
@@ -183,12 +208,16 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
                 f"{sample_vol:.2f}",
                 dest_fc,
                 dest_well,
-                f"{WATCHMAKER_FINAL_VOLUME_UL:.2f}",
+                f"{final_vol:.2f}",
             )
         )
 
     log_lines.append("\n=== Watchmaker Summary ===")
     log_lines.append(f"Samples with low concentration warnings: {low_conc_count}")
+    log_lines.append(
+        "Samples with high concentration (final volume expanded): "
+        f"{high_conc_adjusted_count}"
+    )
     log_lines.append(
         f"Samples skipped due to high concentration: {skipped_high_conc_count}"
     )
@@ -202,6 +231,7 @@ def _watchmaker_setup_workset_plate(lims, currentStep):
     watchmaker_summary_single_line = (
         "Watchmaker Summary: "
         f"low concentration warnings={low_conc_count}; "
+        f"high concentration with expanded final volume={high_conc_adjusted_count}; "
         f"skipped due to high concentration={skipped_high_conc_count}; "
         "skipped due to missing/invalid concentration-volume metrics="
         f"{skipped_missing_info_count}. Please check Bravo Log file for details."
