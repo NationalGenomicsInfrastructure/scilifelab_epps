@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20261109.1
+
+Watchmaker mRNA Bravo setup: use Total Volume from LIMS instead of fixed 50 uL and expand final volume for high-concentration samples.
+
 ## 20261006.1
 
 Fix to support flag-only Aggregate QC workflows and update logbook PCR mappings.
