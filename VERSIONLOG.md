@@ -1,5 +1,9 @@
 # Scilifelab_epps Version Log
 
+## 20261110.1
+
+Samplesheet generator: use dashes instead of underscores as separator in run_setup uploaded to demux_sample_info, to match the recipe format.
+
 ## 20261109.1
 
 Watchmaker mRNA Bravo setup: use Total Volume from LIMS instead of fixed 50 uL and expand final volume for high-concentration samples.

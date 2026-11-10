@@ -767,7 +767,7 @@ def main(lims, args):
                 f.write(content)
             os.chmod(f"{fc_name}.csv", 0o664)
             # Upload samplesheet to CouchDB through Genstat
-            run_setup = f"{process.udf.get('Read 1 Cycles', '0')}_{process.udf.get('Index Read 1', '0')}_{process.udf.get('Index Read 2', '0')}_{process.udf.get('Read 2 Cycles', '0')}"
+            run_setup = f"{process.udf.get('Read 1 Cycles', '0')}-{process.udf.get('Index Read 1', '0')}-{process.udf.get('Index Read 2', '0')}-{process.udf.get('Read 2 Cycles', '0')}"
 
             # Determine instrument type from process name
             instrument_type_mapping = {
